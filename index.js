@@ -1,8 +1,16 @@
+
 const express = require('express');
+
 const app = express();
 const axios = require('axios');
+const renewalRoutes = require('./routes/renewalNoc')
+const { sequelize } = require('./models/relationship');
+const RenewalItem = require('./models/nocItems')
+const RenewalNocForm = require('./models/renewalNocForm')
+app.use('/api', renewalRoutes);
 dotenv = require('dotenv');
 dotenv.config();
+
 
 const port = 3000;
 
@@ -12,11 +20,13 @@ const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
 // Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Test route
 app.get('/', (req, res) => {
   res.send('Server is running 🚀');
 });
+
 
 // 🔐 Webhook verification (GET)
 app.get('/webhook', (req, res) => {
@@ -32,6 +42,10 @@ app.get('/webhook', (req, res) => {
     return res.sendStatus(403);
   }
 });
+
+
+
+
 
 const processedMessages = new Set();
 
@@ -198,12 +212,9 @@ app.post('/webhook', async (req, res) => {
     }
 
     const buttonReply = message?.interactive?.button_reply;
-    let choice1 = ''
-    let choice2 = ''
     if(buttonReply){
         console.log("Button Reply ID:", buttonReply.id);
         if (buttonReply.id === 'menu_main'){
-            
             listButton(
                 from,
                 `Select a service below to get started 👇\n\nWe’re here to assist you with all your approval and registration needs ⚡🛗.`,
@@ -234,10 +245,10 @@ app.post('/webhook', async (req, res) => {
                 [
                     {id : 'transformer_renewal', title: 'Transformer NOC Renewal'},
                     {id : 'DG_renewal', title: 'DG NOC Renewal'},
-                    {id : 'both-renewal-1-2', title: 'For 1st two options'},
+                    {id : 'both-renewal-1-2', title: 'T/F & DG NOC Renewal'},
                     {id : 'lift_renewal', title: 'Lift NOC Renewal'},
                     {id : 'escalator_renewal', title: 'Escalator NOC Renewal'},
-                    {id : 'last-two-noc', title: 'For last two options'},
+                    {id : 'last-two-noc', title: 'Lift & Escalator '},
 
 
                 ]
@@ -251,10 +262,10 @@ app.post('/webhook', async (req, res) => {
                 [
                     {id : 'transformer_registration', title: 'T/F NOC Registration'},
                     {id : 'DG_registration', title: 'DG NOC Registration'},
-                    {id : 'both-registration-1-2', title: 'For 1st two options'},
+                    {id : 'both-registration-1-2', title: 'T/F & DG NOC'},
                     {id : 'lift_registration', title: 'Lift NOC Registration'},
                     {id : 'escalator_registration', title: 'ESC NOC Registration'},
-                    {id : 'last-two-noc', title: 'For last two options'},
+                    {id : 'last-two-noc', title: 'Lift & Escalator NOC'},
 
 
                 ]
@@ -268,7 +279,7 @@ app.post('/webhook', async (req, res) => {
                 [
                     {id : 'lift_registration', title: 'Lift NOC Registration'},
                     {id : 'escalator_registration', title: 'ESC NOC Registration'},
-                    {id : 'both-registration-1-2', title: 'For both options'},
+                    {id : 'both-registration-1-2', title: 'Lift & Esclator'},
                 ]
             )
         }
@@ -279,21 +290,24 @@ app.post('/webhook', async (req, res) => {
                 `Please select the type of * insurance * you want to apply for:`,
                 [
                     {id : 'lift_registration', title: 'Lift NOC Registration'},
-                    {id : 'escalator_registration', title: 'Escalator NOC Registration'},
+                    {id : 'escalator_registration', title: 'Escalator NOC '},
                     {id : 'both-registration-1-2', title: 'For both options'},
                 ]
             )
         }
+  
     }
    
-
+    res.sendStatus(200);
   } catch (error) {
-    console.error("❌ Error:", error.response?.data || error.message);
-    return res.sendStatus(500);
+    console.error("❌ Error processing webhook:", error);
+    res.sendStatus(500);
   }
 });
 
+
 // Start server
-app.listen(port, () => {
+app.listen(port, async() => {
   console.log(`🚀 Server running at http://localhost:${port}`);
+  
 });
