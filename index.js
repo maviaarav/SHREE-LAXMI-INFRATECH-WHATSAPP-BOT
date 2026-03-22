@@ -1,15 +1,10 @@
-
 const express = require('express');
-
 const app = express();
 const axios = require('axios');
-const renewalRoutes = require('./routes/renewalNoc')
-const { sequelize } = require('./models/relationship');
-const RenewalItem = require('./models/nocItems')
-const RenewalNocForm = require('./models/renewalNocForm')
-app.use('/api', renewalRoutes);
 dotenv = require('dotenv');
 dotenv.config();
+const { sequelize } = require('./models/relationship');
+const { User, RenewalTable } = require('./models/relationship');
 
 
 const port = 3000;
@@ -26,6 +21,241 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/', (req, res) => {
   res.send('Server is running 🚀');
 });
+
+
+app.get('/renewal', async (req,res)=>{
+  try{
+    console.log("Fetching renewal data...");
+    const data = await User.findAll({
+      include: [{ model: RenewalTable }]
+    });
+    res.json(data);
+  }catch(error){
+    console.error("Error fetching renewal data:", error);
+    res.status(403).json({ error: "Something went wrong" });
+  }
+})
+
+app.post('/renewal', async (req,res)=>{
+  try{
+    const {name, phoneNumber, address, type, capacity, quantity, kva} = req.body;
+
+   
+    let kvaValue = null;
+    let capacityValue = null;
+    if(type === 'transformer' || type === 'dg'){
+      kvaValue = kva;
+    }
+    if(type === 'lift' || type === 'escalator'){
+      capacityValue = capacity;
+    }
+
+    console.log("Received renewal data:", req.body);
+
+    let user = await User.findOne({where: { phoneNumber }});
+    if(!user){
+      user = await User.create({ name, phoneNumber, address });
+    }
+
+
+
+    const renewalTypeDetails = await RenewalTable.create({
+      type,
+      capacity: capacityValue,
+      quantity,
+      kva: JSON.stringify(kvaValue),
+      userId: user.id
+    })
+    res.send(`
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Thank You</title>
+    <style>
+      body {
+        font-family: Arial;
+        background: #f4f6f9;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .card {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      }
+      h2 {
+        color: #28a745;
+      }
+      p {
+        margin-top: 10px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+
+  <h2>Thank you ${name}!</h2>
+  <p>Your ${type} application has been submitted.</p>
+      <p>We will contact you shortly.</p>
+    </div>
+  </body>
+  </html>
+`);
+normalText(phoneNumber, `Thank you ${name}! Your ${type} application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \n \n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
+  }catch(error){
+    console.error("Error creating renewal data:", error);
+    res.status(403).json({ error: "Something went wrong" });
+   
+  }
+  
+})
+
+
+app.get('/form',(req,res)=>{
+  const { phoneNumber, type } = req.query;
+  if(!phoneNumber || !type){
+    return res.status(400).json({ error: "Missing required query parameters" });
+  }
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NOC Renewal Form</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f4f6f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 420px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      max-height: 90vh;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .type-box {
+      background: #e9f3ff;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      margin-bottom: 15px;
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h2>NOC Renewal Form</h2>
+
+    <div class="type-box">
+      Type: ${type.toUpperCase()}
+    </div>
+
+    <form method="POST" action="/renewal">
+
+      <input type="hidden" name="type" value="${type}" />
+      <input type="hidden" name="phoneNumber" value="${phoneNumber}" />
+
+      <label>Name</label>
+      <input type="text" name="name" required />
+
+      <label>Address</label>
+      <input type="text" name="address" required />
+
+      <label>Quantity</label>
+      <input type="number" id="quantity" name="quantity" required />
+
+      <div id="dynamicFields"></div>
+
+      <button type="submit">Submit Application</button>
+    </form>
+  </div>
+
+<script>
+  const type = "${type}";
+  const quantityInput = document.getElementById('quantity');
+  const dynamicFields = document.getElementById('dynamicFields');
+
+  quantityInput.addEventListener('input', function () {
+    const qty = parseInt(this.value) || 0;
+    dynamicFields.innerHTML = '';
+
+    for (let i = 1; i <= qty; i++) {
+
+      if (type === 'transformer' || type === 'dg') {
+        dynamicFields.innerHTML += \`
+          <label>KVA for Unit \${i}</label>
+          <input type="number" name="kva[]" required />
+        \`;
+      } else if (type === 'lift' || type === 'escalator') {
+        dynamicFields.innerHTML += \`
+          <label>Capacity for Unit \${i}</label>
+          <input type="number" name="capacity[]" required />
+        \`;
+      }
+    }
+  });
+</script>
+
+</body>
+</html>
+`);
+
+})
+
 
 
 // 🔐 Webhook verification (GET)
@@ -48,6 +278,7 @@ app.get('/webhook', (req, res) => {
 
 
 const processedMessages = new Set();
+
 
 // ✅ Send List Function
 
@@ -192,6 +423,16 @@ app.post('/webhook', async (req, res) => {
 
         return res.sendStatus(200);
       }
+      if (msg === "another service"){
+        await sendButton(
+          from,
+          `Sure! Please click Menu to explore our services again. 👇`,
+          [
+            { id: "menu_main", title: "📋 Menu" }
+          ]
+        );
+        return res.sendStatus(200);
+      }
       // fallback for unknown text
       await axios.post(
         `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
@@ -245,14 +486,36 @@ app.post('/webhook', async (req, res) => {
                 [
                     {id : 'transformer_renewal', title: 'Transformer NOC Renewal'},
                     {id : 'DG_renewal', title: 'DG NOC Renewal'},
-                    {id : 'both-renewal-1-2', title: 'T/F & DG NOC Renewal'},
                     {id : 'lift_renewal', title: 'Lift NOC Renewal'},
                     {id : 'escalator_renewal', title: 'Escalator NOC Renewal'},
-                    {id : 'last-two-noc', title: 'Lift & Escalator '},
 
 
                 ]
             )
+        }
+        if (listReply.id === 'transformer_renewal'){
+          normalText(
+            from,
+            `To apply for Transformer NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=transformer&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
+        }
+        if (listReply.id === 'DG_renewal'){
+          normalText(
+            from,
+            `To apply for DG NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=dg&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
+        }
+        if (listReply.id === 'lift_renewal'){
+          normalText(
+            from,
+            `To apply for Lift NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=lift&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
+        }
+        if (listReply.id === 'escalator_renewal'){
+          normalText(
+            from,
+            `To apply for Escalator NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=escalator&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
         }
         if(listReply.id === 'noc_registration'){
            
@@ -295,7 +558,7 @@ app.post('/webhook', async (req, res) => {
                 ]
             )
         }
-  
+        
     }
    
     res.sendStatus(200);
@@ -306,8 +569,14 @@ app.post('/webhook', async (req, res) => {
 });
 
 
+
 // Start server
 app.listen(port, async() => {
   console.log(`🚀 Server running at http://localhost:${port}`);
-  
+  try {
+    await sequelize.sync();
+    console.log("Database synced successfully");
+  } catch (error) {
+    console.error("Database sync failed:", error.message);
+  }
 });
