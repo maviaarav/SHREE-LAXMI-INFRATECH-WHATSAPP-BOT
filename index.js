@@ -1,10 +1,12 @@
 const express = require('express');
 const app = express();
+const path = require('path');
 const axios = require('axios');
 dotenv = require('dotenv');
 dotenv.config();
 const { sequelize } = require('./models/relationship');
 const { User, RenewalTable } = require('./models/relationship');
+const multer = require('multer');
 
 
 const port = 3000;
@@ -13,14 +15,252 @@ const VERIFY_TOKEN = "my_verify_token";
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static('uploads'));
 
 // Test route
 app.get('/', (req, res) => {
   res.send('Server is running 🚀');
 });
+
+const storage = multer.diskStorage({
+  destination : (req,file,cd) =>{
+    cd(null, 'uploads/')
+  },
+  filename : (req,file,cd) =>{
+    const  uniqueFileName = Date.now() + path.extname(file.originalname)
+    cd(null, uniqueFileName)
+  }
+})
+
+const upload = multer({storage})
+
+app.get('/quotationForm', (req,res)=>{
+  const { phoneNumber } = req.query
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Quotation Form - Shree Laxmi Infratech</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          padding: 20px;
+        }
+
+        .container {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 600px;
+          box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+          overflow-y: auto;
+          max-height: 95vh;
+        }
+
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+          border-bottom: 3px solid #667eea;
+          padding-bottom: 20px;
+        }
+
+        .header h1 {
+          color: #333;
+          font-size: 28px;
+          margin-bottom: 5px;
+        }
+
+        .header p {
+          color: #666;
+          font-size: 14px;
+        }
+
+        .form-section {
+          margin-bottom: 25px;
+        }
+
+        .form-section h3 {
+          color: #667eea;
+          font-size: 16px;
+          margin-bottom: 15px;
+          border-left: 4px solid #667eea;
+          padding-left: 10px;
+        }
+
+        label {
+          display: block;
+          margin-bottom: 8px;
+          font-weight: 600;
+          color: #333;
+          font-size: 14px;
+        }
+
+        input, textarea, select {
+          width: 100%;
+          padding: 12px;
+          margin-bottom: 15px;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          font-size: 14px;
+          font-family: inherit;
+          transition: border-color 0.3s ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+          resize: vertical;
+          min-height: 100px;
+        }
+
+        .input-group {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+        }
+
+        .input-group input {
+          margin-bottom: 0;
+        }
+
+        .btn-submit {
+          width: 100%;
+          padding: 14px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          margin-top: 20px;
+        }
+
+        .btn-submit:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-submit:active {
+          transform: translateY(0);
+        }
+
+        .info-box {
+          background: #f8f9ff;
+          border-left: 4px solid #667eea;
+          padding: 15px;
+          margin-bottom: 20px;
+          border-radius: 4px;
+          color: #555;
+          font-size: 13px;
+          line-height: 1.6;
+        }
+
+        .required {
+          color: #e74c3c;
+        }
+
+        @media (max-width: 600px) {
+          .container {
+            padding: 25px;
+          }
+
+          .header h1 {
+            font-size: 24px;
+          }
+
+          .input-group {
+            grid-template-columns: 1fr;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>📋 Quotation Form</h1>
+          <p>Shree Laxmi Infratech</p>
+        </div>
+
+        <form method="POST" action="/quotation-submit" enctype="multipart/form-data">
+          
+          <div class="form-section">
+            <h3>Upload Documents</h3>
+            <input type="hidden" name="phoneNumber" value="${phoneNumber}" />
+           <h4 class="info-box">Please upload the necessary documents for your application. Accepted formats: PDF Only.</h4>
+           <input type="file" name="pdf" accept="application/pdf" required />
+          </div>
+          <button type="submit" class="btn-submit">📤 Send Quotation </button>
+        </form>
+      </div>
+    </body>
+    </html>
+    `)
+
+})
+app.post('/quotation-submit', upload.single('pdf'), async(req,res)=>{
+  const { phoneNumber } = req.body
+  try{
+    const pdfUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`
+    console.log(pdfUrl)
+
+    await axios.post(
+      `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product : 'whatsapp',
+        to: phoneNumber,
+        type: "document",
+        document: {
+          link: pdfUrl,
+          filename: req.file.originalname
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+           "Content-Type": "application/json"
+        }
+      }
+    )
+      res.send("✅ PDF sent successfully!");
+    setTimeout(()=>{
+      sendButton(phoneNumber, "Please review the quotation at your earliest convenience.\n\nReply by selecting one of the options below:", [
+        {id: "accept_quotation", title: "✅ Accept Quotation"},
+        {id: "quotation_reject", title: "❌ Reject Quotation"},
+      ],3000)
+    })
+  }catch (error){
+      console.error(error.response?.data || error);
+    res.send("❌ Error sending PDF");
+  }
+
+})
+
+
+
+
+
 
 
 app.get('/renewal', async (req,res)=>{
@@ -61,7 +301,7 @@ app.post('/renewal', async (req,res)=>{
 
     const renewalTypeDetails = await RenewalTable.create({
       type,
-      capacity: capacityValue,
+      capacity: JSON.stringify(capacityValue),
       quantity,
       kva: JSON.stringify(kvaValue),
       userId: user.id
@@ -106,7 +346,9 @@ app.post('/renewal', async (req,res)=>{
   </body>
   </html>
 `);
-normalText(phoneNumber, `Thank you ${name}! Your ${type} application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \n \n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
+normalText(phoneNumber, `Thank you ${name}! Your ${type} application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
+normalText(918006243900, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity} KG*\n\n*KVA: ${kvaValue || 'N/A'} KVA*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
+
   }catch(error){
     console.error("Error creating renewal data:", error);
     res.status(403).json({ error: "Something went wrong" });
@@ -114,6 +356,9 @@ normalText(phoneNumber, `Thank you ${name}! Your ${type} application has been su
   }
   
 })
+
+
+
 
 
 app.get('/form',(req,res)=>{
@@ -205,6 +450,7 @@ app.get('/form',(req,res)=>{
     </div>
 
     <form method="POST" action="/renewal">
+    
 
       <input type="hidden" name="type" value="${type}" />
       <input type="hidden" name="phoneNumber" value="${phoneNumber}" />
@@ -470,6 +716,14 @@ app.post('/webhook', async (req, res) => {
             )
             
         }
+           if(buttonReply.id === 'accept_quotation'){
+          normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
+          normalText(918006243900, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.`)
+        }
+        if(buttonReply.id === 'quotation_reject'){
+          normalText(from, "Thank you for rejecting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
+          normalText(918006243900, `Quotation Rejected:\n\n*Phone: +${from}*\n\nThe customer has rejected the quotation. Please assign an executive to contact the customer and proceed with the service.`)
+        }
 
     }
 
@@ -493,6 +747,7 @@ app.post('/webhook', async (req, res) => {
                 ]
             )
         }
+     
         if (listReply.id === 'transformer_renewal'){
           normalText(
             from,
@@ -580,3 +835,5 @@ app.listen(port, async() => {
     console.error("Database sync failed:", error.message);
   }
 });
+
+
