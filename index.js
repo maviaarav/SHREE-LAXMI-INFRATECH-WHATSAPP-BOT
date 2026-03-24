@@ -5,7 +5,7 @@ const axios = require('axios');
 dotenv = require('dotenv');
 dotenv.config();
 const { sequelize } = require('./models/relationship');
-const { User, RenewalTable } = require('./models/relationship');
+const { User, RenewalTable ,nocRegistration,premiseRegistration } = require('./models/relationship');
 const multer = require('multer');
 
 
@@ -276,6 +276,836 @@ app.get('/renewal', async (req,res)=>{
   }
 })
 
+app.get('/premiseRegistration', async (req,res)=>{
+  try{
+    console.log("Fetching renewal data...");
+    const data = await User.findAll({
+      include: [{model: premiseRegistration}]
+    })
+    res.json(data)
+  }catch(error){
+    console.error("Error fetching premiseRegistration Data: ", error)
+    res.status(403).send({ error: "Something went wrong" })
+  }
+})
+
+app.post('/premiseRegistration', async (req,res)=>{
+  const { name, phoneNumber, address, OwnerName,House_no,ColonyName,Landmark,Locality,EmailAgent,MobileAgent,AgentName,RegistrationNeworOld,whetherPrivateorpublic,whetherCommercialorResidential,type,ocAvailable,ocNumber,ocDate,Make,serialNo,weight,proposedDateofcommencement,proposedDateofcompletion,ApprovedbuildingplanDocument,DrawingsofPremise,SafetyCertificate,SignatureofOwner,personCapacity , quantity } = req.body
+  let user = await User.findOne({
+    where: {phoneNumber},
+  })
+  if(!user){
+     user = await User.create({name, phoneNumber, address})
+  }
+  console.log("Receiving Premise Registration details: ", req.body)
+
+  const PersonJsonData = JSON.parse(weight)
+  const NoOfPerson = PersonJsonData.weight.map(n => Number(n) / 68)
+  console.log("Number of Persons", NoOfPerson)
+
+
+  await premiseRegistration.create({
+    OwnerName,
+    House_no,
+    ColonyName,
+    Landmark,
+    Locality,
+    EmailAgent,
+    MobileAgent,
+    AgentName,
+    RegistrationNeworOld,
+    whetherCommercialorResidential,
+    whetherPrivateorpublic,
+    type,
+    ocAvailable,
+    ocNumber,
+    ocDate,
+    Make,
+    serialNo: JSON.stringify(serialNo),
+    weight: JSON.stringify(weight),
+    proposedDateofcommencement,
+    proposedDateofcompletion,
+    ApprovedbuildingplanDocument,
+    DrawingsofPremise,
+    SafetyCertificate,
+    SignatureofOwner,
+    quantity,
+    personCapacity : JSON.stringify(NoOfPerson)
+
+  })
+     res.send(`
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Thank You</title>
+    <style>
+      body {
+        font-family: Arial;
+        background: #f4f6f9;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .card {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      }
+      h2 {
+        color: #28a745;
+      }
+      p {
+        margin-top: 10px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+
+  <h2>Thank you ${name}!</h2>
+  <p>Your ${type} application has been submitted.</p>
+      <p>We will contact you shortly.</p>
+    </div>
+  </body>
+  </html>
+`);
+normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
+normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
+  
+})
+
+app.get('/premiseRegistrationForm', async (req, res) => {
+  const { phoneNumber, type = 'lift' } = req.query;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ error: 'Missing required query parameter: phoneNumber' });
+  }
+
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Premise Registration Form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(120deg, #eef4ff 0%, #f7fbf8 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 820px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #ececec;
+    }
+
+    .header h2 {
+      margin: 0 0 8px;
+      color: #1f2937;
+      font-size: 24px;
+    }
+
+    .progress {
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 33.33%;
+      background: linear-gradient(90deg, #2563eb, #0ea5e9);
+      transition: width 0.25s ease;
+    }
+
+    form { padding: 0; }
+
+    .slides {
+      display: flex;
+      width: 300%;
+      transition: transform 0.3s ease;
+    }
+
+    .slide {
+      width: 100%;
+      padding: 22px 24px;
+    }
+
+    .section-title {
+      margin: 0 0 16px;
+      color: #0f172a;
+      font-size: 18px;
+      border-left: 4px solid #2563eb;
+      padding-left: 10px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      margin-bottom: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cfd6df;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    textarea {
+      min-height: 84px;
+      resize: vertical;
+    }
+
+    .help {
+      margin-top: 6px;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 18px 24px 24px;
+      border-top: 1px solid #ececec;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .btn-prev {
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+
+    .btn-next, .btn-submit {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+      .slide { padding: 18px; }
+      .header { padding: 16px 18px; }
+      .nav { padding: 14px 18px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h2>Premise Registration</h2>
+      <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+    </div>
+
+    <form id="premiseForm" method="POST" action="/premiseRegistrationForm" enctype="multipart/form-data">
+      <input type="hidden" name="phoneNumber" value="${phoneNumber}" />
+      <input type="hidden" name="serialNo" id="serialNoJson" />
+      <input type="hidden" name="weight" id="weightJson" />
+
+      <div id="slides" class="slides">
+        <section class="slide">
+          <h3 class="section-title">Page 1: Owner and Agent Details</h3>
+          <div class="grid">
+            <div class="field"><label>Name</label><input type="text" name="name" required /></div>
+            <div class="field"><label>Phone Number</label><input type="text" value="${phoneNumber}" disabled /></div>
+            <div class="field full"><label>Address</label><input type="text" name="address" required /></div>
+            <div class="field"><label>Owner Name</label><input type="text" name="OwnerName" required /></div>
+            <div class="field"><label>Agent Name</label><input type="text" name="AgentName" required /></div>
+            <div class="field"><label>Agent Email</label><input type="email" name="EmailAgent" required /></div>
+            <div class="field"><label>Agent Mobile</label><input type="text" name="MobileAgent" required /></div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <h3 class="section-title">Page 2: Premise Details</h3>
+          <div class="grid">
+            <div class="field"><label>House No</label><input type="text" name="House_no" required /></div>
+            <div class="field"><label>Colony Name</label><input type="text" name="ColonyName" required /></div>
+            <div class="field"><label>Landmark</label><input type="text" name="Landmark" required /></div>
+            <div class="field"><label>Locality</label><input type="text" name="Locality" required /></div>
+            <div class="field"><label>Registration</label>
+              <select name="RegistrationNeworOld" required>
+                <option value="new">New</option>
+                <option value="old">Old</option>
+              </select>
+            </div>
+            <div class="field"><label>Private/Public</label>
+              <select name="whetherPrivateorpublic" required>
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
+            </div>
+            <div class="field"><label>Commercial/Residential</label>
+              <select name="whetherCommercialorResidential" required>
+                <option value="commercial">Commercial</option>
+                <option value="residential">Residential</option>
+              </select>
+            </div>
+            <div class="field"><label>Type</label>
+              <select name="type" id="typeSelect" required>
+                <option value="lift">Lift</option>
+                <option value="escalator">Escalator</option>
+                <option value="transformer">Transformer</option>
+                <option value="dg">DG</option>
+              </select>
+            </div>
+            <div class="field"><label>OC Available</label>
+              <select name="ocAvailable" required>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+            <div class="field"><label>OC Number</label><input type="text" name="ocNumber" /></div>
+            <div class="field"><label>OC Date</label><input type="date" name="ocDate" /></div>
+            <div class="field"><label>Make</label><input type="text" name="Make" /></div>
+            <div class="field"><label>Quantity</label><input type="number" name="quantity" min="1" value="1" required /></div>
+            <div class="field full"><label>Serial Numbers</label><textarea id="serialNoInput" placeholder="Enter comma-separated serial numbers" required></textarea></div>
+            <div class="field full"><label>Weight per Unit</label><textarea id="weightInput" placeholder="Enter comma-separated weights (kg), example: 340, 510" required></textarea><div class="help">Person capacity will be auto-calculated as weight / 68 for lift/escalator.</div></div>
+            <div class="field"><label>Proposed Commencement Date</label><input type="date" name="proposedDateofcommencement" /></div>
+            <div class="field"><label>Proposed Completion Date</label><input type="date" name="proposedDateofcompletion" /></div>
+          </div>
+        </section>
+
+        <section class="slide">
+          <h3 class="section-title">Page 3: Files Upload</h3>
+          <div class="grid">
+            <div class="field full"><label>Approved Building Plan</label><input type="file" name="ApprovedbuildingplanDocument" accept=".pdf,.jpg,.jpeg,.png" /></div>
+            <div class="field full"><label>Drawings of Premise</label><input type="file" name="DrawingsofPremise" accept=".pdf,.jpg,.jpeg,.png" /></div>
+            <div class="field full"><label>Safety Certificate</label><input type="file" name="SafetyCertificate" accept=".pdf,.jpg,.jpeg,.png" /></div>
+            <div class="field full"><label>Owner Signature</label><input type="file" name="SignatureofOwner" accept=".pdf,.jpg,.jpeg,.png" /></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="nav">
+        <button type="button" id="prevBtn" class="btn btn-prev hidden">Back</button>
+        <button type="button" id="nextBtn" class="btn btn-next">Next</button>
+        <button type="submit" id="submitBtn" class="btn btn-submit hidden">Submit Application</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const slides = document.getElementById('slides');
+    const progressBar = document.getElementById('progressBar');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const typeSelect = document.getElementById('typeSelect');
+    const form = document.getElementById('premiseForm');
+
+    let step = 0;
+
+    typeSelect.value = "${type}";
+
+    function updateStep() {
+      slides.style.transform = 'translateX(-' + (step * 33.3333) + '%)';
+      progressBar.style.width = ((step + 1) / 3) * 100 + '%';
+      prevBtn.classList.toggle('hidden', step === 0);
+      nextBtn.classList.toggle('hidden', step === 2);
+      submitBtn.classList.toggle('hidden', step !== 2);
+    }
+
+    nextBtn.addEventListener('click', function () {
+      if (step < 2) {
+        step += 1;
+        updateStep();
+      }
+    });
+
+    prevBtn.addEventListener('click', function () {
+      if (step > 0) {
+        step -= 1;
+        updateStep();
+      }
+    });
+
+    form.addEventListener('submit', function () {
+      const serialRaw = document.getElementById('serialNoInput').value || '';
+      const weightRaw = document.getElementById('weightInput').value || '';
+
+      const serialArray = serialRaw
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const weightArray = weightRaw
+        .split(',')
+        .map(w => Number(w.trim()))
+        .filter(w => !Number.isNaN(w));
+
+      document.getElementById('serialNoJson').value = JSON.stringify(serialArray);
+      document.getElementById('weightJson').value = JSON.stringify({ weight: weightArray });
+    });
+
+    updateStep();
+  </script>
+</body>
+</html>
+`);
+});
+
+app.post('/premiseRegistrationForm', upload.fields([
+  { name: 'ApprovedbuildingplanDocument', maxCount: 1 },
+  { name: 'DrawingsofPremise', maxCount: 1 },
+  { name: 'SafetyCertificate', maxCount: 1 },
+  { name: 'SignatureofOwner', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const {
+      name,
+      phoneNumber,
+      address,
+      OwnerName,
+      House_no,
+      ColonyName,
+      Landmark,
+      Locality,
+      EmailAgent,
+      MobileAgent,
+      AgentName,
+      RegistrationNeworOld,
+      whetherPrivateorpublic,
+      whetherCommercialorResidential,
+      type,
+      ocAvailable,
+      ocNumber,
+      ocDate,
+      Make,
+      serialNo,
+      weight,
+      proposedDateofcommencement,
+      proposedDateofcompletion,
+      quantity
+    } = req.body;
+
+    const selectedType = Array.isArray(type) ? type[0] : type;
+
+    let user = await User.findOne({ where: { phoneNumber } });
+    if (!user) {
+      user = await User.create({ name, phoneNumber, address });
+    }
+
+    let serialNoValue = [];
+    let weightArray = [];
+
+    try {
+      serialNoValue = Array.isArray(serialNo) ? serialNo : JSON.parse(serialNo || '[]');
+    } catch (error) {
+      serialNoValue = [];
+    }
+
+    try {
+      const parsedWeight = JSON.parse(weight || '{"weight":[]}');
+      if (Array.isArray(parsedWeight)) {
+        weightArray = parsedWeight.map(Number).filter(n => !Number.isNaN(n));
+      } else if (Array.isArray(parsedWeight.weight)) {
+        weightArray = parsedWeight.weight.map(Number).filter(n => !Number.isNaN(n));
+      }
+    } catch (error) {
+      weightArray = [];
+    }
+
+    const personCapacityArray = (selectedType === 'lift' || selectedType === 'escalator')
+      ? weightArray.map(n => n / 68)
+      : null;
+
+    const getUploadedUrl = (field) => {
+      const file = req.files?.[field]?.[0];
+      if (!file) return null;
+      const baseUrl = process.env.BASE_URL || '';
+      return `${baseUrl}/uploads/${file.filename}`;
+    };
+
+    await premiseRegistration.create({
+      OwnerName,
+      House_no,
+      ColonyName,
+      Landmark,
+      Locality,
+      EmailAgent,
+      MobileAgent,
+      AgentName,
+      RegistrationNeworOld,
+      whetherCommercialorResidential,
+      whetherPrivateorpublic,
+      type: selectedType,
+      ocAvailable: ocAvailable === 'true' || ocAvailable === true,
+      ocNumber: ocNumber || null,
+      ocDate: ocDate || null,
+      Make: Make || null,
+      serialNo: JSON.stringify(serialNoValue),
+      weight: JSON.stringify(weightArray),
+      proposedDateofcommencement: proposedDateofcommencement || null,
+      proposedDateofcompletion: proposedDateofcompletion || null,
+      ApprovedbuildingplanDocument: getUploadedUrl('ApprovedbuildingplanDocument'),
+      DrawingsofPremise: getUploadedUrl('DrawingsofPremise'),
+      SafetyCertificate: getUploadedUrl('SafetyCertificate'),
+      SignatureofOwner: getUploadedUrl('SignatureofOwner'),
+      quantity: Number(quantity) || null,
+      personCapacity: personCapacityArray ? JSON.stringify(personCapacityArray) : null,
+      userId: user.id
+    });
+
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Submitted</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f5f9;
+      font-family: Arial, sans-serif;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 28px;
+      width: min(540px, 92vw);
+      text-align: center;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+    }
+    h2 { color: #16a34a; margin-bottom: 8px; }
+    p { color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Thank you ${name}!</h2>
+    <p>Your Premise Registration for ${selectedType} has been submitted successfully.</p>
+  </div>
+</body>
+</html>
+`);
+
+    normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${selectedType}* has been submitted. Our team will contact you shortly.`);
+  } catch (error) {
+    console.error('Error creating premise registration form data:', error);
+    res.status(500).json({ error: 'Something went wrong while submitting premise registration form.' });
+  }
+});
+app.get('/nocRegistration', async (req,res)=>{
+  try{
+    console.log("Fetching NOC registration data...");
+    const data = await User.findAll({
+      include: [{ model: nocRegistration }]
+    });
+    res.json(data);
+  }catch(error){
+    console.error("Error fetching NOC registration data:", error);
+    res.status(403).json({ error: "Something went wrong" });
+  }
+})
+
+app.get('/nocRegistration/:phoneNumber', async(req,res)=>{
+  const { phoneNumber } = req.params;
+  try{
+    console.log(`Fetching NOC registration data for phone number: ${phoneNumber}...`);
+    const user = await User.findOne({
+      where: { phoneNumber },
+      
+    });
+    if(!user){
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user);
+  }catch(error){
+    console.error(`Error fetching NOC registration data for ${phoneNumber}:`, error);
+    res.status(403).json({ error: "Something went wrong" });
+  }
+
+})
+app.post('/nocRegistration', async (req,res)=>{
+  try{
+    const {name, phoneNumber, address, type, capacity, quantity, kva} = req.body;
+    let user = await User.findOne({where: { phoneNumber }})
+    if(!user){
+      user = await User.create({name, phoneNumber, address})
+    }
+    let kvaValue = null;
+    let capacityValue = null;
+
+    if(type === 'transformer' || type === 'dg'){
+      kvaValue = kva;
+    }
+    if(type === 'lift' || type === 'escalator'){
+      capacityValue = capacity;
+    }
+
+    console.log("Received renewal data:", req.body);
+
+    const nocTypeDetails = await nocRegistration.create({
+      type,
+      capacity: JSON.stringify(capacityValue),
+      quantity,
+      kva: JSON.stringify(kvaValue),
+      userId: user.id
+    })
+
+    res.send(`
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Thank You</title>
+    <style>
+      body {
+        font-family: Arial;
+        background: #f4f6f9;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .card {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      }
+      h2 {
+        color: #28a745;
+      }
+      p {
+        margin-top: 10px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+
+  <h2>Thank you ${name}!</h2>
+  <p>Your ${type} application has been submitted.</p>
+      <p>We will contact you shortly.</p>
+    </div>
+  </body>
+  </html>
+`);
+normalText(phoneNumber, `Thank you ${name}! Your Noc Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
+normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
+  }catch(error){
+      console.error("Error fetching NOC registration data:", error);
+    res.status(403).json({ error: "Something went wrong" });
+  }
+})
+
+
+app.get('/NoCRegistrationForm',(req,res)=>{
+  const { phoneNumber, type } = req.query;
+  if(!phoneNumber || !type){
+    return res.status(400).json({ error: "Missing required query parameters" });
+  }
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NOC Registration Form</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f4f6f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 420px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      max-height: 90vh;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .type-box {
+      background: #e9f3ff;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      margin-bottom: 15px;
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h2>NOC Registration Form</h2>
+
+    <div class="type-box">
+      Type: ${type.toUpperCase()}
+    </div>
+
+    <form method="POST" action="/nocRegistration">
+    
+
+      <input type="hidden" name="type" value="${type}" />
+      <input type="hidden" name="phoneNumber" value="${phoneNumber}" />
+
+      <label>Name</label>
+      <input type="text" name="name" required />
+
+      <label>Address</label>
+      <input type="text" name="address" required />
+
+      <label>Quantity</label>
+      <input type="number" id="quantity" name="quantity" required />
+
+      <div id="dynamicFields"></div>
+
+      <button type="submit">Submit Application</button>
+    </form>
+  </div>
+
+<script>
+  const type = "${type}";
+  const quantityInput = document.getElementById('quantity');
+  const dynamicFields = document.getElementById('dynamicFields');
+
+  quantityInput.addEventListener('input', function () {
+    const qty = parseInt(this.value) || 0;
+    dynamicFields.innerHTML = '';
+
+    for (let i = 1; i <= qty; i++) {
+
+      if (type === 'transformer' || type === 'dg') {
+        dynamicFields.innerHTML += \`
+          <label>KVA for Unit \${i}</label>
+          <input type="number" name="kva[]" required />
+        \`;
+      } else if (type === 'lift' || type === 'escalator') {
+        dynamicFields.innerHTML += \`
+          <label>Capacity for Unit \${i}</label>
+          <input type="number" name="capacity[]" required />
+        \`;
+      }
+    }
+  });
+</script>
+
+</body>
+</html>
+`);
+
+})
+
+
+
+
+
+app.get('/renewal/:phoneNumber', async(req,res)=>{
+  const { phoneNumber } = req.params;
+  try{
+    console.log(`Fetching renewal data for phone number: ${phoneNumber}...`);
+    const user = await User.findOne({
+      where: { phoneNumber },
+      include: [{ model: RenewalTable }]
+    });
+    if(!user){
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user);
+  }catch(error){
+    console.error(`Error fetching renewal data for ${phoneNumber}:`, error);
+    res.status(403).json({ error: "Something went wrong" });
+  }
+})
+
 app.post('/renewal', async (req,res)=>{
   try{
     const {name, phoneNumber, address, type, capacity, quantity, kva} = req.body;
@@ -347,7 +1177,7 @@ app.post('/renewal', async (req,res)=>{
   </html>
 `);
 normalText(phoneNumber, `Thank you ${name}! Your ${type} application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(918006243900, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity} KG*\n\n*KVA: ${kvaValue || 'N/A'} KVA*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
+normalText(918006243900, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
 
   }catch(error){
     console.error("Error creating renewal data:", error);
@@ -718,7 +1548,7 @@ app.post('/webhook', async (req, res) => {
         }
            if(buttonReply.id === 'accept_quotation'){
           normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
-          normalText(918006243900, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.`)
+          normalText(918006243900, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: http://localhost:3000/renewal/${from}`)
         }
         if(buttonReply.id === 'quotation_reject'){
           normalText(from, "Thank you for rejecting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
@@ -780,14 +1610,36 @@ app.post('/webhook', async (req, res) => {
                 [
                     {id : 'transformer_registration', title: 'T/F NOC Registration'},
                     {id : 'DG_registration', title: 'DG NOC Registration'},
-                    {id : 'both-registration-1-2', title: 'T/F & DG NOC'},
                     {id : 'lift_registration', title: 'Lift NOC Registration'},
-                    {id : 'escalator_registration', title: 'ESC NOC Registration'},
-                    {id : 'last-two-noc', title: 'Lift & Escalator NOC'},
+                    {id : 'escalator_registration', title: 'Escalator NOC Regist.'},
 
 
                 ]
             )
+        }
+        if(listReply.id === 'transformer_registration'){
+          normalText(
+            from,
+            `To apply for Transformer NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=transformer&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
+        }
+          if(listReply.id === 'DG_registration'){
+          normalText(
+            from,
+            `To apply for DG NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=dg&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
+        }
+         if(listReply.id === 'lift_registration'){
+          normalText(
+            from,
+            `To apply for Lift NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=lift&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
+        }
+         if(listReply.id === 'escalator_registration'){
+          normalText(
+            from,
+            `To apply for Escalator NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=escalator&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
         }
         if(listReply.id === 'premise_registation'){
          
@@ -829,7 +1681,7 @@ app.post('/webhook', async (req, res) => {
 app.listen(port, async() => {
   console.log(`🚀 Server running at http://localhost:${port}`);
   try {
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
     console.log("Database synced successfully");
   } catch (error) {
     console.error("Database sync failed:", error.message);
