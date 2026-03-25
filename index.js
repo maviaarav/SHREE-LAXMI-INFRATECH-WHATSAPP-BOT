@@ -5,8 +5,10 @@ const axios = require('axios');
 dotenv = require('dotenv');
 dotenv.config();
 const { sequelize } = require('./models/relationship');
-const { User, RenewalTable ,nocRegistration,premiseRegistration } = require('./models/relationship');
+const { User, RenewalTable ,nocRegistration,premiseRegistration,quotationAmount } = require('./models/relationship');
 const multer = require('multer');
+const QRCode = require('qrcode');
+const fs = require('fs')
 
 
 const port = 3000;
@@ -20,6 +22,7 @@ const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
+app.use('/payments', express.static('payments'));
 
 // Test route
 app.get('/', (req, res) => {
@@ -29,6 +32,7 @@ app.get('/', (req, res) => {
 const storage = multer.diskStorage({
   destination : (req,file,cd) =>{
     cd(null, 'uploads/')
+
   },
   filename : (req,file,cd) =>{
     const  uniqueFileName = Date.now() + path.extname(file.originalname)
@@ -38,8 +42,74 @@ const storage = multer.diskStorage({
 
 const upload = multer({storage})
 
+const paymentStorage = multer.diskStorage({
+  destination: (req,file, cb) =>{
+    cb(null, 'payments/')
+  },
+  filename : (req,file,cb) =>{
+    const fileName = file.originalname.split('.')[0];
+    cb(null, fileName)
+  }
+})
+const paymentUpload = multer({storage: paymentStorage})
+
+// function to send QR code for payment
+
+
+const QRcode = async (amount, orderID) =>{
+  const upiID = process.env.UPI_ID;
+  const comPanyName = 'Shree Laxmi Infratech';
+  const UPI_Link = `upi://pay?pa=${upiID}&pn=${encodeURIComponent(comPanyName)}&am=${amount}&cu=INR&tn=${orderID}`
+  const fileName = `qrcode${orderID}.png`
+  try{
+    await QRCode.toFile(`payments/${fileName}`, UPI_Link, {
+      width: 300,
+    })
+    console.log("Image created: ", fileName)
+    return fileName;
+  }catch(error){
+    console.error("Error generating QR code:", error);
+    throw error;
+  }
+}
+
+
+
+
+
+
+
 app.get('/quotationForm', (req,res)=>{
-  const { phoneNumber } = req.query
+  let { phoneNumber = '', name = '', type = '' } = req.query
+
+  if (typeof phoneNumber === 'string' && phoneNumber.includes('?')) {
+    const legacyParts = phoneNumber.split('?');
+    phoneNumber = legacyParts[0] || phoneNumber;
+
+    for (const part of legacyParts.slice(1)) {
+      const [k, ...v] = part.split('=');
+      const value = decodeURIComponent((v || []).join('=') || '');
+      if (k === 'name' && !name) {
+        name = value;
+      }
+      if (k === 'type' && !type) {
+        type = value;
+      }
+    }
+  }
+
+  if (!phoneNumber || !name || !type) {
+    return res.status(400).send('Missing required query parameters: phoneNumber, name, type');
+  }
+
+  const normalizedPhoneNumber = String(phoneNumber).replace(/[^0-9]/g, '');
+  if (!normalizedPhoneNumber) {
+    return res.status(400).send('Invalid phone number in query parameter.');
+  }
+
+  const safeName = String(name).trim();
+  const safeType = String(type).trim().toLowerCase();
+
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -203,13 +273,20 @@ app.get('/quotationForm', (req,res)=>{
           <p>Shree Laxmi Infratech</p>
         </div>
 
-        <form method="POST" action="/quotation-submit" enctype="multipart/form-data">
+        <form method="POST" action="/quotationAmount" enctype="multipart/form-data">
           
           <div class="form-section">
             <h3>Upload Documents</h3>
-            <input type="hidden" name="phoneNumber" value="${phoneNumber}" />
+            <input type="hidden" name="phoneNumber" value="${normalizedPhoneNumber}" />
+            <input type="hidden" name="name" value="${safeName}" />
+            <input type="hidden" name="type" value="${safeType}" />
+
            <h4 class="info-box">Please upload the necessary documents for your application. Accepted formats: PDF Only.</h4>
            <input type="file" name="pdf" accept="application/pdf" required />
+           <h4 class="info-box">Please enter the quotation amount.</h4>
+           <input type="text" name="amount" placeholder="Enter quotation amount" />
+           <h4 class="info-box">Please enter the order number.</h4>
+           <input type="text" name="orderNo" placeholder="Enter order number" />
           </div>
           <button type="submit" class="btn-submit">📤 Send Quotation </button>
         </form>
@@ -217,43 +294,6 @@ app.get('/quotationForm', (req,res)=>{
     </body>
     </html>
     `)
-
-})
-app.post('/quotation-submit', upload.single('pdf'), async(req,res)=>{
-  const { phoneNumber } = req.body
-  try{
-    const pdfUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`
-    console.log(pdfUrl)
-
-    await axios.post(
-      `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product : 'whatsapp',
-        to: phoneNumber,
-        type: "document",
-        document: {
-          link: pdfUrl,
-          filename: req.file.originalname
-        }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-           "Content-Type": "application/json"
-        }
-      }
-    )
-      res.send("✅ PDF sent successfully!");
-    setTimeout(()=>{
-      sendButton(phoneNumber, "Please review the quotation at your earliest convenience.\n\nReply by selecting one of the options below:", [
-        {id: "accept_quotation", title: "✅ Accept Quotation"},
-        {id: "quotation_reject", title: "❌ Reject Quotation"},
-      ],3000)
-    })
-  }catch (error){
-      console.error(error.response?.data || error);
-    res.send("❌ Error sending PDF");
-  }
 
 })
 
@@ -275,6 +315,142 @@ app.get('/renewal', async (req,res)=>{
     res.status(403).json({ error: "Something went wrong" });
   }
 })
+
+
+
+app.get('/quotationAmount', async(req,res)=>{
+  try{
+    console.log('Fetching quotation details...');
+    const data = await User.findAll({
+      include: [{model: quotationAmount}]
+    })
+    res.status(200).json(data)
+  }catch(error){
+    console.log("Error in fetching quotation details:", error)
+    res.status(403).json({ error: "Something went wrong" });
+  }
+
+})
+
+app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
+  try{
+    const { phoneNumber, name, type, amount, orderNo } = req.body || {}
+
+    if (!phoneNumber || !name || !type || !amount || !orderNo) {
+      return res.status(400).json({ error: 'Missing required quotation fields.' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'PDF file is required.' });
+    }
+
+    let user = await User.findOne({
+      where: { phoneNumber },
+    })
+    if(!user){
+      user = await User.create({ name, phoneNumber, address: 'N/A' })
+
+    }
+
+    const pdfUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`
+    console.log(pdfUrl)
+
+    await quotationAmount.create({
+      phoneNumber,
+      name,
+      type,
+      amount,
+      pdfUrl,
+      status: 'pending',
+      userId: user.id,
+      orderNo
+    })
+
+    await axios.post(
+      `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product : 'whatsapp',
+        to: phoneNumber,
+        type: "document",
+        document: {
+          link: pdfUrl,
+          filename: req.file.originalname
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      }
+    )
+    setTimeout(() => {
+      sendButton(phoneNumber, "Please review the quotation at your earliest convenience.\n\nReply by selecting one of the options below:", [
+        { id: "accept_quotation", title: "✅ Accept Quotation" },
+        { id: "quotation_reject", title: "❌ Reject Quotation" },
+      ])
+    }, 3000)
+
+
+    res.send(`
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Thank You</title>
+    <style>
+      body {
+        font-family: Arial;
+        background: #f4f6f9;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .card {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      }
+      h2 {
+        color: #28a745;
+      }
+      p {
+        margin-top: 10px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+
+  <h2>Quotation Sent to ${name}!</h2>
+    </div>
+  </body>
+  </html>
+`);
+  }catch (error){
+    console.log("Error in fetching quotation details:", error)
+    res.status(403).json({ error: "Something went wrong" });
+  }
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 app.get('/premiseRegistration', async (req,res)=>{
   try{
@@ -373,8 +549,7 @@ app.post('/premiseRegistration', async (req,res)=>{
   </body>
   </html>
 `);
-normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
+
   
 })
 
@@ -830,7 +1005,8 @@ app.post('/premiseRegistrationForm', upload.fields([
 </html>
 `);
 
-    normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${selectedType}* has been submitted. Our team will contact you shortly.`);
+    normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
+normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
   } catch (error) {
     console.error('Error creating premise registration form data:', error);
     res.status(500).json({ error: 'Something went wrong while submitting premise registration form.' });
@@ -1549,6 +1725,39 @@ app.post('/webhook', async (req, res) => {
            if(buttonReply.id === 'accept_quotation'){
           normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
           normalText(918006243900, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: http://localhost:3000/renewal/${from}`)
+
+          const quotation = await quotationAmount.findOne({
+            where: { phoneNumber: from },
+            order: [['createdAt', 'DESC']]
+          })
+          await quotation.update({ status: 'accepted' });
+
+          await QRcode(quotation.amount, quotation.orderNo);
+
+          const qrURL = `${process.env.BASE_URL}/payments/qrcode${quotation.orderNo}.png`;
+
+          await axios.post(
+            `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+            {
+              messaging_product: 'whatsapp',
+              to: from,
+              type: 'image',
+              image: {
+                link: qrURL,
+                caption: `Scan this QR code to pay ₹${quotation.amount} for your ${quotation.type} application.`
+              }
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+                "Content-Type": "application/json"
+              }
+            }
+          )
+           normalText(from, "Once paid, please upload payment screenshot.");
+
+
+
         }
         if(buttonReply.id === 'quotation_reject'){
           normalText(from, "Thank you for rejecting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
@@ -1647,11 +1856,22 @@ app.post('/webhook', async (req, res) => {
                 from,
                 `Please select the type of * premise registration * you want to apply for:`,
                 [
-                    {id : 'lift_registration', title: 'Lift NOC Registration'},
-                    {id : 'escalator_registration', title: 'ESC NOC Registration'},
-                    {id : 'both-registration-1-2', title: 'Lift & Esclator'},
+                    {id : 'lift_PremiseRegistration', title: 'Lift NOC Registration'},
+                    {id : 'escalator_PremiseRegistration', title: 'ESC NOC Registration'},
                 ]
             )
+        }
+        if(listReply.id === 'lift_PremiseRegistration'){
+          normalText(
+            from,
+            `To apply for Lift Premise Registration, please fill out the form below:\n\nhttp://localhost:3000/premiseRegistrationForm?type=lift&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Lift\n- Serial Number of Lift(s)\n- Weight of Lift(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Lifts\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
+        }
+         if(listReply.id === 'escalator_PremiseRegistration'){
+          normalText(
+            from,
+            `To apply for Escalator Premise Registration, please fill out the form below:\n\nhttp://localhost:3000/premiseRegistrationForm?type=escalator&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Escalator\n- Serial Number of Escalator(s)\n- Weight of Escalator(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Escalators\n\nOur team will review your application and get back to you shortly. Thank you!`
+          )
         }
         if(listReply.id === 'insurance'){
             

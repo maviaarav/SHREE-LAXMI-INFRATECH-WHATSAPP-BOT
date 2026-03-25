@@ -17,7 +17,8 @@ const nocRegistration = sequelize.define('nocRegistration',{
     kva : {
         type : DataTypes.NUMBER,
         allowNull : true,
-    }          
+    },
+           
 })
 module.exports = nocRegistration;
 
