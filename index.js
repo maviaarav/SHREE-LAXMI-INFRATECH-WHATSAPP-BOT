@@ -1006,7 +1006,7 @@ app.post('/premiseRegistrationForm', upload.fields([
 `);
 
     normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
+normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}.`);
   } catch (error) {
     console.error('Error creating premise registration form data:', error);
     res.status(500).json({ error: 'Something went wrong while submitting premise registration form.' });
@@ -1053,10 +1053,10 @@ app.post('/nocRegistration', async (req,res)=>{
     let kvaValue = null;
     let capacityValue = null;
 
-    if(type === 'transformer' || type === 'dg'){
+    if(type === 'Transformer-NOC-Registration' || type === 'DG-NOC-Registration'){
       kvaValue = kva;
     }
-    if(type === 'lift' || type === 'escalator'){
+    if(type === 'Lift-NOC-Registration' || type === 'Escalator-NOC-Registration'){
       capacityValue = capacity;
     }
 
@@ -1110,8 +1110,8 @@ app.post('/nocRegistration', async (req,res)=>{
   </body>
   </html>
 `);
-normalText(phoneNumber, `Thank you ${name}! Your Noc Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
+normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
+normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
   }catch(error){
       console.error("Error fetching NOC registration data:", error);
     res.status(403).json({ error: "Something went wrong" });
@@ -1239,12 +1239,12 @@ app.get('/NoCRegistrationForm',(req,res)=>{
 
     for (let i = 1; i <= qty; i++) {
 
-      if (type === 'transformer' || type === 'dg') {
+      if (type === 'Transformer-NOC-Registration' || type === 'DG-NOC-Registration') {
         dynamicFields.innerHTML += \`
           <label>KVA for Unit \${i}</label>
           <input type="number" name="kva[]" required />
         \`;
-      } else if (type === 'lift' || type === 'escalator') {
+      } else if (type === 'Lift-NOC-Registration' || type === 'Escalator-NOC-Registration') {
         dynamicFields.innerHTML += \`
           <label>Capacity for Unit \${i}</label>
           <input type="number" name="capacity[]" required />
@@ -1289,10 +1289,10 @@ app.post('/renewal', async (req,res)=>{
    
     let kvaValue = null;
     let capacityValue = null;
-    if(type === 'transformer' || type === 'dg'){
+    if(type === 'Transformer-Renewal' || type === 'DG-Renewal'){
       kvaValue = kva;
     }
-    if(type === 'lift' || type === 'escalator'){
+    if(type === 'Lift-Renewal' || type === 'Escalator-Renewal'){
       capacityValue = capacity;
     }
 
@@ -1352,8 +1352,8 @@ app.post('/renewal', async (req,res)=>{
   </body>
   </html>
 `);
-normalText(phoneNumber, `Thank you ${name}! Your ${type} application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(918006243900, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}.`);
+normalText(phoneNumber, `*Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
+normalText(918006243900, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
 
   }catch(error){
     console.error("Error creating renewal data:", error);
@@ -1487,12 +1487,12 @@ app.get('/form',(req,res)=>{
 
     for (let i = 1; i <= qty; i++) {
 
-      if (type === 'transformer' || type === 'dg') {
+      if (type === 'Transformer-Renewal' || type === 'DG-Renewal') {
         dynamicFields.innerHTML += \`
           <label>KVA for Unit \${i}</label>
           <input type="number" name="kva[]" required />
         \`;
-      } else if (type === 'lift' || type === 'escalator') {
+      } else if (type === 'Lift-Renewal' || type === 'Escalator-Renewal') {
         dynamicFields.innerHTML += \`
           <label>Capacity for Unit \${i}</label>
           <input type="number" name="capacity[]" required />
@@ -1790,25 +1790,25 @@ app.post('/webhook', async (req, res) => {
         if (listReply.id === 'transformer_renewal'){
           normalText(
             from,
-            `To apply for Transformer NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=transformer&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Transformer NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=Transformer-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if (listReply.id === 'DG_renewal'){
           normalText(
             from,
-            `To apply for DG NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=dg&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for DG NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=DG-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if (listReply.id === 'lift_renewal'){
           normalText(
             from,
-            `To apply for Lift NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=lift&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Lift NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=Lift-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if (listReply.id === 'escalator_renewal'){
           normalText(
             from,
-            `To apply for Escalator NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=escalator&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Escalator NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=Escalator-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if(listReply.id === 'noc_registration'){
@@ -1829,25 +1829,25 @@ app.post('/webhook', async (req, res) => {
         if(listReply.id === 'transformer_registration'){
           normalText(
             from,
-            `To apply for Transformer NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=transformer&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Transformer NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=Transformer-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
           if(listReply.id === 'DG_registration'){
           normalText(
             from,
-            `To apply for DG NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=dg&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for DG NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=DG-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
          if(listReply.id === 'lift_registration'){
           normalText(
             from,
-            `To apply for Lift NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=lift&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Lift NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=Lift-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
          if(listReply.id === 'escalator_registration'){
           normalText(
             from,
-            `To apply for Escalator NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=escalator&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Escalator NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=Escalator-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if(listReply.id === 'premise_registation'){
