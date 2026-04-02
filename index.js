@@ -508,8 +508,15 @@ app.post('/payment/confirm/:paymentId', async (req, res) => {
 
     res.json({ success: true, message: 'Payment confirmed', paymentId });
   } catch (error) {
-    console.error('Error confirming payment:', error);
-    res.status(500).json({ error: 'Failed to confirm payment' });
+    console.error('❌ Error confirming payment:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to confirm payment',
+      details: error.message
+    });
   }
 });
 
@@ -535,8 +542,15 @@ app.post('/payment/reject/:paymentId', async (req, res) => {
 
     res.json({ success: true, message: 'Payment rejected', paymentId });
   } catch (error) {
-    console.error('Error rejecting payment:', error);
-    res.status(500).json({ error: 'Failed to reject payment' });
+    console.error('❌ Error rejecting payment:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to reject payment',
+      details: error.message
+    });
   }
 });
 
@@ -979,8 +993,15 @@ app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
   </html>
 `);
   }catch (error){
-    console.log("Error in fetching quotation details:", error)
-    res.status(403).json({ error: "Something went wrong" });
+    console.error("❌ Error in fetching quotation details:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(403).json({ 
+      error: "Something went wrong",
+      details: error.message
+    });
   }
 })
 
@@ -1566,8 +1587,15 @@ app.post('/premiseRegistrationForm', upload.fields([
     normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
 normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}.`);
   } catch (error) {
-    console.error('Error creating premise registration form data:', error);
-    res.status(500).json({ error: 'Something went wrong while submitting premise registration form.' });
+    console.error('❌ Error creating premise registration form data:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Something went wrong while submitting premise registration form.',
+      details: error.message
+    });
   }
 });
 app.get('/nocRegistration', async (req,res)=>{
@@ -1671,8 +1699,15 @@ app.post('/nocRegistration', async (req,res)=>{
 normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
 normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
   }catch(error){
-      console.error("Error fetching NOC registration data:", error);
-    res.status(403).json({ error: "Something went wrong" });
+      console.error("❌ Error creating NOC registration:", {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+    res.status(403).json({ 
+      error: "Something went wrong",
+      details: error.message
+    });
   }
 })
 
@@ -1921,8 +1956,15 @@ normalText(phoneNumber, `*Thank you ${name}! Your Premise Registration for *${ty
 normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
 
   }catch(error){
-    console.error("Error creating renewal data:", error);
-    res.status(403).json({ error: "Something went wrong" });
+    console.error("❌ Error creating renewal data:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(403).json({ 
+      error: "Something went wrong",
+      details: error.message
+    });
    
   }
   
