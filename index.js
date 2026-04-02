@@ -29,6 +29,25 @@ app.get('/', (req, res) => {
   res.send('Server is running 🚀');
 });
 
+// Health check endpoint
+app.get('/health', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.status(200).json({ 
+      status: 'healthy',
+      database: 'connected',
+      node_env: process.env.NODE_ENV,
+      database_dialect: process.env.DATABASE_DIALECT
+    });
+  } catch (error) {
+    res.status(503).json({ 
+      status: 'unhealthy',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
+});
+
 const storage = multer.memoryStorage();
 const upload = multer({storage});
 
@@ -1816,8 +1835,15 @@ app.get('/renewal/:phoneNumber', async(req,res)=>{
     }
     res.json(user);
   }catch(error){
-    console.error(`Error fetching renewal data for ${phoneNumber}:`, error);
-    res.status(403).json({ error: "Something went wrong" });
+    console.error(`❌ Error fetching renewal data for ${phoneNumber}:`, {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    res.status(403).json({ 
+      error: "Something went wrong",
+      details: error.message 
+    });
   }
 })
 
