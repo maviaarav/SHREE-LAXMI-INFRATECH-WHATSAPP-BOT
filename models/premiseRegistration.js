@@ -83,20 +83,36 @@ const premiseRegistration = sequelize.define('premiseRegistration',{
         allowNull : true,
     },
     ApprovedbuildingplanDocument: {
-        type : DataTypes.STRING,
-        allowNull : true,
+        type: DataTypes.BLOB,
+        allowNull: true,
+    },
+    ApprovedbuildingplanDocumentMimeType: {
+        type: DataTypes.STRING,
+        allowNull: true,
     },
     DrawingsofPremise: {
-        type : DataTypes.STRING,
-        allowNull : true,
+        type: DataTypes.BLOB,
+        allowNull: true,
+    },
+    DrawingsofPremiseMimeType: {
+        type: DataTypes.STRING,
+        allowNull: true,
     },
     SafetyCertificate: {
-        type : DataTypes.STRING,
-        allowNull : true,
+        type: DataTypes.BLOB,
+        allowNull: true,
+    },
+    SafetyCertificateMimeType: {
+        type: DataTypes.STRING,
+        allowNull: true,
     },
     SignatureofOwner: {
-        type : DataTypes.STRING,
-        allowNull : true,
+        type: DataTypes.BLOB,
+        allowNull: true,
+    },
+    SignatureofOwnerMimeType: {
+        type: DataTypes.STRING,
+        allowNull: true,
     },
     personCapacity: {
         type: DataTypes.TEXT,

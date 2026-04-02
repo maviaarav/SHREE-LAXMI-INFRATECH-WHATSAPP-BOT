@@ -5,7 +5,7 @@ const axios = require('axios');
 dotenv = require('dotenv');
 dotenv.config();
 const { sequelize } = require('./models/relationship');
-const { User, RenewalTable ,nocRegistration,premiseRegistration,quotationAmount } = require('./models/relationship');
+const { User, RenewalTable ,nocRegistration,premiseRegistration,quotationAmount, paymentProof } = require('./models/relationship');
 const multer = require('multer');
 const QRCode = require('qrcode');
 const fs = require('fs')
@@ -29,29 +29,11 @@ app.get('/', (req, res) => {
   res.send('Server is running 🚀');
 });
 
-const storage = multer.diskStorage({
-  destination : (req,file,cd) =>{
-    cd(null, 'uploads/')
+const storage = multer.memoryStorage();
+const upload = multer({storage});
 
-  },
-  filename : (req,file,cd) =>{
-    const  uniqueFileName = Date.now() + path.extname(file.originalname)
-    cd(null, uniqueFileName)
-  }
-})
-
-const upload = multer({storage})
-
-const paymentStorage = multer.diskStorage({
-  destination: (req,file, cb) =>{
-    cb(null, 'payments/')
-  },
-  filename : (req,file,cb) =>{
-    const fileName = file.originalname.split('.')[0];
-    cb(null, fileName)
-  }
-})
-const paymentUpload = multer({storage: paymentStorage})
+const paymentStorage = multer.memoryStorage();
+const paymentUpload = multer({storage: paymentStorage});
 
 // function to send QR code for payment
 
@@ -303,6 +285,272 @@ app.get('/quotationForm', (req,res)=>{
 
 
 
+// Document download endpoint for quotation PDFs
+app.get('/document/quotation/:phoneNumber/:orderNo', async (req, res) => {
+  try {
+    const { phoneNumber, orderNo } = req.params;
+    const doc = await quotationAmount.findOne({
+      where: { phoneNumber, orderNo }
+    });
+    if (!doc || !doc.pdfData) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+    res.setHeader('Content-Type', doc.pdfMimeType || 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.pdfOriginalName}"`);
+    res.send(doc.pdfData);
+  } catch (error) {
+    console.error('Error downloading quotation document:', error);
+    res.status(500).json({ error: 'Failed to download document' });
+  }
+});
+
+// Payment screenshot upload endpoint
+app.post('/payment/upload', paymentUpload.single('screenshot'), async (req, res) => {
+  try {
+    const { phoneNumber, orderNo, amount, quotationId } = req.body;
+
+    if (!phoneNumber || !orderNo || !req.file) {
+      return res.status(400).json({ error: 'Missing required fields or screenshot' });
+    }
+
+    let user = await User.findOne({ where: { phoneNumber } });
+    if (!user) {
+      user = await User.create({ name: 'N/A', phoneNumber, address: 'N/A' });
+    }
+
+    const proof = await paymentProof.create({
+      phoneNumber,
+      orderNo,
+      amount: amount || 0,
+      screenshotData: req.file.buffer,
+      screenshotMimeType: req.file.mimetype,
+      screenshotOriginalName: req.file.originalname,
+      status: 'pending',
+      userId: user.id,
+      quotationId: quotationId || null
+    });
+
+    // Notify owner with buttons to confirm/reject payment
+    await sendButton(
+      process.env.OWNER_PHONE_NUMBER,
+      `📸 **New Payment Screenshot Received**\n\n*Phone:* +${phoneNumber}\n*Order:* ${orderNo}\n*Amount:* ₹${amount}\n\n✅ Screenshot saved to database.\n\nPlease verify:`,
+      [
+        { id: `confirm_payment_${proof.id}`, title: '✅ Confirm Payment' },
+        { id: `reject_payment_${proof.id}`, title: '❌ Reject Payment' }
+      ]
+    );
+
+    // Send screenshot image to owner
+    const screenshotUrl = `${process.env.BASE_URL}/payment/screenshot/${proof.id}`;
+    await axios.post(
+      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: process.env.OWNER_PHONE_NUMBER,
+        type: 'image',
+        image: {
+          link: screenshotUrl,
+          caption: `Payment Screenshot - Order: ${orderNo}, Amount: ₹${amount}`
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    // Send success message to user
+    await normalText(
+      phoneNumber,
+      `✅ **Payment Screenshot Successfully Submitted!**\n\nThank you for uploading your payment proof.\n\n📝 *Details:*\n- Order: ${orderNo}\n- Amount: ₹${amount}\n\n🔄 Our team will verify and confirm it on WhatsApp shortly.\n\nThank you for your patience! 😊`
+    );
+
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Payment Submitted</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+      max-width: 500px;
+      width: 100%;
+    }
+    h2 {
+      color: #28a745;
+      font-size: 28px;
+      margin: 0 0 15px 0;
+    }
+    .check-mark {
+      font-size: 60px;
+      margin-bottom: 15px;
+    }
+    p {
+      margin: 10px 0;
+      color: #555;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    .details {
+      background: #f8f9ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: left;
+      border-left: 4px solid #667eea;
+    }
+    .details p {
+      margin: 8px 0;
+      font-size: 14px;
+    }
+    .divider {
+      height: 1px;
+      background: #ddd;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="check-mark">✅</div>
+    <h2>Payment Screenshot Submitted!</h2>
+    <p>Thank you for uploading your payment proof.</p>
+    
+    <div class="details">
+      <p><strong>Order Number:</strong> ${orderNo}</p>
+      <p><strong>Amount:</strong> ₹${amount}</p>
+      <p><strong>Status:</strong> Pending Verification</p>
+    </div>
+    
+    <div class="divider"></div>
+    <p>Our team will verify and confirm your payment on WhatsApp shortly.</p>
+    <p style="color: #667eea; font-weight: 600;">You will receive a confirmation message soon! 🚀</p>
+  </div>
+</body>
+</html>
+`);
+  } catch (error) {
+    console.error('Error uploading payment screenshot:', error);
+    res.status(500).json({ error: 'Failed to upload payment screenshot' });
+  }
+});
+
+// Get payment screenshot for verification
+app.get('/payment/screenshot/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const proof = await paymentProof.findByPk(paymentId);
+    if (!proof || !proof.screenshotData) {
+      return res.status(404).json({ error: 'Payment screenshot not found' });
+    }
+    res.setHeader('Content-Type', proof.screenshotMimeType || 'image/jpeg');
+    res.setHeader('Content-Disposition', `attachment; filename="${proof.screenshotOriginalName}"`);
+    res.send(proof.screenshotData);
+  } catch (error) {
+    console.error('Error retrieving payment screenshot:', error);
+    res.status(500).json({ error: 'Failed to retrieve screenshot' });
+  }
+});
+
+// Confirm payment endpoint
+app.post('/payment/confirm/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const proof = await paymentProof.findByPk(paymentId);
+    if (!proof) {
+      return res.status(404).json({ error: 'Payment record not found' });
+    }
+
+    proof.status = 'confirmed';
+    proof.ownerReviewedAt = new Date();
+    await proof.save();
+
+    // Notify user about confirmation
+    await normalText(
+      proof.phoneNumber,
+      `✅ **Payment Confirmed!**\n\nYour payment of ₹${proof.amount} for order ${proof.orderNo} has been verified and confirmed.\n\nThank you for your business! 🙏`
+    );
+
+    res.json({ success: true, message: 'Payment confirmed', paymentId });
+  } catch (error) {
+    console.error('Error confirming payment:', error);
+    res.status(500).json({ error: 'Failed to confirm payment' });
+  }
+});
+
+// Reject payment endpoint
+app.post('/payment/reject/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const { reason } = req.body;
+    const proof = await paymentProof.findByPk(paymentId);
+    if (!proof) {
+      return res.status(404).json({ error: 'Payment record not found' });
+    }
+
+    proof.status = 'rejected';
+    proof.ownerReviewedAt = new Date();
+    await proof.save();
+
+    // Notify user about rejection
+    await normalText(
+      proof.phoneNumber,
+      `❌ **Payment Not Verified**\n\nYour payment screenshot for order ${proof.orderNo} could not be verified.\n\n*Reason:* ${reason || 'Insufficient details'}\n\nPlease resubmit with a clear screenshot showing:\n✓ Transaction ID\n✓ Amount\n✓ Date`
+    );
+
+    res.json({ success: true, message: 'Payment rejected', paymentId });
+  } catch (error) {
+    console.error('Error rejecting payment:', error);
+    res.status(500).json({ error: 'Failed to reject payment' });
+  }
+});
+
+app.get('/document/premise/:userId/:documentType', async (req, res) => {
+  try {
+    const { userId, documentType } = req.params;
+    const premise = await premiseRegistration.findOne({ where: { userId } });
+
+    if (!premise) {
+      return res.status(404).json({ error: 'Premise registration not found' });
+    }
+
+    const docMap = {
+      building: { data: premise.ApprovedbuildingplanDocument, mime: premise.ApprovedbuildingplanDocumentMimeType, name: 'building_plan.pdf' },
+      drawings: { data: premise.DrawingsofPremise, mime: premise.DrawingsofPremiseMimeType, name: 'drawings.pdf' },
+      safety: { data: premise.SafetyCertificate, mime: premise.SafetyCertificateMimeType, name: 'safety_cert.pdf' },
+      signature: { data: premise.SignatureofOwner, mime: premise.SignatureofOwnerMimeType, name: 'signature.pdf' }
+    };
+
+    const doc = docMap[documentType];
+    if (!doc || !doc.data) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    res.setHeader('Content-Type', doc.mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.name}"`);
+    res.send(doc.data);
+  } catch (error) {
+    console.error('Error retrieving premise document:', error);
+    res.status(500).json({ error: 'Failed to retrieve document' });
+  }
+});
+
 app.get('/renewal', async (req,res)=>{
   try{
     console.log("Fetching renewal data...");
@@ -332,6 +580,287 @@ app.get('/quotationAmount', async(req,res)=>{
 
 })
 
+app.get('/paymentUploadForm', async (req, res) => {
+  const { phoneNumber = '' } = req.query;
+
+  if (!phoneNumber) {
+    return res.status(400).send('Missing required query parameter: phoneNumber');
+  }
+
+  const normalizedPhoneNumber = String(phoneNumber).replace(/[^0-9]/g, '');
+  if (!normalizedPhoneNumber) {
+    return res.status(400).send('Invalid phone number in query parameter.');
+  }
+
+  try {
+    // Fetch the latest pending/accepted quotation for this user
+    const quotation = await quotationAmount.findOne({
+      where: { phoneNumber: normalizedPhoneNumber },
+      order: [['createdAt', 'DESC']]
+    });
+
+    const orderNo = quotation?.orderNo || '';
+    const amount = quotation?.amount || '';
+
+    res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Upload Payment Proof - Shree Laxmi Infratech</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          padding: 20px;
+        }
+
+        .container {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 500px;
+          box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+          border-bottom: 3px solid #667eea;
+          padding-bottom: 20px;
+        }
+
+        .header h1 {
+          color: #333;
+          font-size: 28px;
+          margin-bottom: 5px;
+        }
+
+        .header p {
+          color: #666;
+          font-size: 14px;
+        }
+
+        .form-section {
+          margin-bottom: 25px;
+        }
+
+        .form-section h3 {
+          color: #667eea;
+          font-size: 16px;
+          margin-bottom: 15px;
+          border-left: 4px solid #667eea;
+          padding-left: 10px;
+        }
+
+        label {
+          display: block;
+          margin-bottom: 8px;
+          font-weight: 600;
+          color: #333;
+          font-size: 14px;
+        }
+
+        input, textarea, select {
+          width: 100%;
+          padding: 12px;
+          margin-bottom: 15px;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          font-size: 14px;
+          font-family: inherit;
+          transition: border-color 0.3s ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input[readonly] {
+          background-color: #f5f5f5;
+          cursor: not-allowed;
+          color: #555;
+        }
+
+        input[type="file"] {
+          padding: 8px;
+          cursor: pointer;
+        }
+
+        .file-input-wrapper {
+          position: relative;
+          margin-bottom: 15px;
+        }
+
+        .file-label {
+          display: inline-block;
+          padding: 12px 20px;
+          background: #667eea;
+          color: white;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+          text-align: center;
+          width: 100%;
+          transition: background 0.3s ease;
+        }
+
+        .file-label:hover {
+          background: #5568d3;
+        }
+
+        input[type="file"] {
+          display: none;
+        }
+
+        .file-name {
+          color: #666;
+          font-size: 13px;
+          margin-top: 5px;
+        }
+
+        button {
+          width: 100%;
+          padding: 14px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          margin-top: 10px;
+        }
+
+        button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+          transform: translateY(0);
+        }
+
+        .error {
+          color: #e74c3c;
+          font-size: 13px;
+          margin-top: 5px;
+          display: none;
+        }
+
+        .info-text {
+          color: #28a745;
+          font-size: 13px;
+          margin-top: 5px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>💳 Payment Proof</h1>
+          <p>Upload your payment screenshot to verify the transaction</p>
+        </div>
+
+        <form id="paymentForm" enctype="multipart/form-data">
+          <div class="form-section">
+            <h3>Payment Details</h3>
+
+            <label for="phoneNumber">Phone Number</label>
+            <input type="tel" id="phoneNumber" name="phoneNumber" value="${normalizedPhoneNumber}" readonly required />
+
+            <label for="orderNo">Order Number</label>
+            <input type="text" id="orderNo" name="orderNo" value="${orderNo}" readonly required />
+            <div class="info-text">✓ Auto-filled from your quotation</div>
+
+            <label for="amount">Amount (₹)</label>
+            <input type="number" id="amount" name="amount" value="${amount}" readonly required />
+            <div class="info-text">✓ Auto-filled from your quotation</div>
+          </div>
+
+          <div class="form-section">
+            <h3>Screenshot</h3>
+
+            <label>Payment Screenshot * (JPG/PNG)</label>
+            <div class="file-input-wrapper">
+              <label for="screenshot" class="file-label">📁 Choose Screenshot</label>
+              <input type="file" id="screenshot" name="screenshot" accept="image/jpeg,image/png" required />
+              <div class="file-name" id="fileName">No file chosen</div>
+              <div class="error" id="fileError">Please select a valid image file (JPG/PNG only)</div>
+            </div>
+          </div>
+
+          <button type="submit">✅ Upload Payment Proof</button>
+          <div class="error" id="formError"></div>
+        </form>
+      </div>
+
+      <script>
+        document.getElementById('screenshot').addEventListener('change', function() {
+          const fileName = this.files[0] ? this.files[0].name : 'No file chosen';
+          document.getElementById('fileName').textContent = fileName;
+          document.getElementById('fileError').style.display = 'none';
+        });
+
+        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+          e.preventDefault();
+
+          const fileInput = document.getElementById('screenshot');
+          if (!fileInput.files || fileInput.files.length === 0) {
+            document.getElementById('fileError').style.display = 'block';
+            return;
+          }
+
+          const file = fileInput.files[0];
+          if (!['image/jpeg', 'image/png'].includes(file.type)) {
+            document.getElementById('fileError').style.display = 'block';
+            return;
+          }
+
+          const formData = new FormData(this);
+          
+          try {
+            const response = await fetch('/payment/upload', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (response.ok) {
+              const html = await response.text();
+              document.write(html);
+            } else {
+              const error = await response.json();
+              document.getElementById('formError').textContent = error.error || 'Upload failed. Please try again.';
+              document.getElementById('formError').style.display = 'block';
+            }
+          } catch (err) {
+            document.getElementById('formError').textContent = 'Network error. Please try again.';
+            document.getElementById('formError').style.display = 'block';
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `);
+  } catch (error) {
+    console.error('Error loading payment upload form:', error);
+    return res.status(500).send('Error loading form. Please try again.');
+  }
+});
+
 app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
   try{
     const { phoneNumber, name, type, amount, orderNo } = req.body || {}
@@ -349,31 +878,31 @@ app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
     })
     if(!user){
       user = await User.create({ name, phoneNumber, address: 'N/A' })
-
     }
-
-    const pdfUrl = `${process.env.BASE_URL}/uploads/${req.file.filename}`
-    console.log(pdfUrl)
 
     await quotationAmount.create({
       phoneNumber,
       name,
       type,
       amount,
-      pdfUrl,
+      pdfData: req.file.buffer,
+      pdfMimeType: req.file.mimetype,
+      pdfOriginalName: req.file.originalname,
       status: 'pending',
       userId: user.id,
       orderNo
-    })
+    });
+
+    const documentUrl = `${process.env.BASE_URL}/document/quotation/${phoneNumber}/${orderNo}`;
 
     await axios.post(
-      `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/v22.0/${process.env.PHONE_NUMBER_ID}/messages`,
       {
         messaging_product : 'whatsapp',
         to: phoneNumber,
         type: "document",
         document: {
-          link: pdfUrl,
+          link: documentUrl,
           filename: req.file.originalname
         }
       },
@@ -383,14 +912,14 @@ app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
           "Content-Type": "application/json"
         }
       }
-    )
+    );
+    
     setTimeout(() => {
       sendButton(phoneNumber, "Please review the quotation at your earliest convenience.\n\nReply by selecting one of the options below:", [
         { id: "accept_quotation", title: "✅ Accept Quotation" },
         { id: "quotation_reject", title: "❌ Reject Quotation" },
       ])
-    }, 3000)
-
+    }, 3000);
 
     res.send(`
   <!DOCTYPE html>
@@ -932,12 +1461,16 @@ app.post('/premiseRegistrationForm', upload.fields([
       ? weightArray.map(n => n / 68)
       : null;
 
-    const getUploadedUrl = (field) => {
+    const getUploadedDocument = (field) => {
       const file = req.files?.[field]?.[0];
-      if (!file) return null;
-      const baseUrl = process.env.BASE_URL || '';
-      return `${baseUrl}/uploads/${file.filename}`;
+      if (!file) return { data: null, mimeType: null };
+      return { data: file.buffer, mimeType: file.mimetype };
     };
+
+    const buildingPlan = getUploadedDocument('ApprovedbuildingplanDocument');
+    const drawings = getUploadedDocument('DrawingsofPremise');
+    const safetyDoc = getUploadedDocument('SafetyCertificate');
+    const signature = getUploadedDocument('SignatureofOwner');
 
     await premiseRegistration.create({
       OwnerName,
@@ -960,14 +1493,20 @@ app.post('/premiseRegistrationForm', upload.fields([
       weight: JSON.stringify(weightArray),
       proposedDateofcommencement: proposedDateofcommencement || null,
       proposedDateofcompletion: proposedDateofcompletion || null,
-      ApprovedbuildingplanDocument: getUploadedUrl('ApprovedbuildingplanDocument'),
-      DrawingsofPremise: getUploadedUrl('DrawingsofPremise'),
-      SafetyCertificate: getUploadedUrl('SafetyCertificate'),
-      SignatureofOwner: getUploadedUrl('SignatureofOwner'),
+      ApprovedbuildingplanDocument: buildingPlan.data,
+      ApprovedbuildingplanDocumentMimeType: buildingPlan.mimeType,
+      DrawingsofPremise: drawings.data,
+      DrawingsofPremiseMimeType: drawings.mimeType,
+      SafetyCertificate: safetyDoc.data,
+      SafetyCertificateMimeType: safetyDoc.mimeType,
+      SignatureofOwner: signature.data,
+      SignatureofOwnerMimeType: signature.mimeType,
       quantity: Number(quantity) || null,
       personCapacity: personCapacityArray ? JSON.stringify(personCapacityArray) : null,
       userId: user.id
     });
+
+
 
     res.send(`
 <!DOCTYPE html>
@@ -1006,7 +1545,7 @@ app.post('/premiseRegistrationForm', upload.fields([
 `);
 
     normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}.`);
+normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}.`);
   } catch (error) {
     console.error('Error creating premise registration form data:', error);
     res.status(500).json({ error: 'Something went wrong while submitting premise registration form.' });
@@ -1111,7 +1650,7 @@ app.post('/nocRegistration', async (req,res)=>{
   </html>
 `);
 normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(918006243900, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
+normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
   }catch(error){
       console.error("Error fetching NOC registration data:", error);
     res.status(403).json({ error: "Something went wrong" });
@@ -1353,7 +1892,7 @@ app.post('/renewal', async (req,res)=>{
   </html>
 `);
 normalText(phoneNumber, `*Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(918006243900, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
+normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
 
   }catch(error){
     console.error("Error creating renewal data:", error);
@@ -1663,6 +2202,9 @@ app.post('/webhook', async (req, res) => {
 
         return res.sendStatus(200);
       }
+      if (msg === 'ownerLine'){
+        await normalText(from, "Owner window opened");
+      }
 
       if (msg === "help") {
         await sendButton(
@@ -1716,6 +2258,7 @@ app.post('/webhook', async (req, res) => {
                     {id : "noc_registration", title: 'Noc Registation'},
                     {id : "premise_registation", title: 'Premise Registration'},
                     {id : "insurance", title: 'Apply for Insurance '},
+                    {id : "upload_payment", title: 'Upload Payment Proof'},
 
                 ]
                 
@@ -1724,7 +2267,7 @@ app.post('/webhook', async (req, res) => {
         }
            if(buttonReply.id === 'accept_quotation'){
           normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
-          normalText(918006243900, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: http://localhost:3000/renewal/${from}`)
+          normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: http://localhost:3000/renewal/${from}`)
 
           const quotation = await quotationAmount.findOne({
             where: { phoneNumber: from },
@@ -1754,14 +2297,59 @@ app.post('/webhook', async (req, res) => {
               }
             }
           )
-           normalText(from, "Once paid, please upload payment screenshot.");
+           const paymentUploadLink = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
+           normalText(from, `✅ Once paid, please upload your payment screenshot here:\n\n${paymentUploadLink}\n\nThis helps us verify and confirm your payment quickly! 🚀`);
 
 
 
         }
         if(buttonReply.id === 'quotation_reject'){
           normalText(from, "Thank you for rejecting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
-          normalText(918006243900, `Quotation Rejected:\n\n*Phone: +${from}*\n\nThe customer has rejected the quotation. Please assign an executive to contact the customer and proceed with the service.`)
+          normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Rejected:\n\n*Phone: +${from}*\n\nThe customer has rejected the quotation. Please assign an executive to contact the customer and proceed with the service.`)
+        }
+
+        // Handle payment confirmation button
+        if(buttonReply.id && buttonReply.id.startsWith('confirm_payment_')) {
+          const paymentId = buttonReply.id.replace('confirm_payment_', '');
+          const payment = await paymentProof.findByPk(paymentId);
+          
+          if (payment) {
+            await payment.update({ status: 'confirmed', ownerReviewedAt: new Date() });
+            
+            // Notify owner that they confirmed the payment
+            await normalText(
+              process.env.OWNER_PHONE_NUMBER,
+              `✅ **Payment Confirmed**\n\n*Customer:* +${payment.phoneNumber}\n*Order:* ${payment.orderNo}\n*Amount:* ₹${payment.amount}\n\nConfirmation message sent to customer.`
+            );
+            
+            // Send success message to customer
+            await normalText(
+              payment.phoneNumber,
+              `🎉 **Your Payment Has Been Confirmed!**\n\n✅ *Order:* ${payment.orderNo}\n✅ *Amount:* ₹${payment.amount}\n\nThank you for your payment. Our team will proceed with your service. If you have any questions, please contact us. 😊`
+            );
+          }
+        }
+
+        // Handle payment rejection button
+        if(buttonReply.id && buttonReply.id.startsWith('reject_payment_')) {
+          const paymentId = buttonReply.id.replace('reject_payment_', '');
+          const payment = await paymentProof.findByPk(paymentId);
+          
+          if (payment) {
+            await payment.update({ status: 'rejected', ownerReviewedAt: new Date() });
+            
+            // Notify owner that they rejected the payment
+            await normalText(
+              process.env.OWNER_PHONE_NUMBER,
+              `❌ **Payment Rejected**\n\n*Customer:* +${payment.phoneNumber}\n*Order:* ${payment.orderNo}\n*Amount:* ₹${payment.amount}\n\nRejection message sent to customer asking for clearer screenshot.`
+            );
+            
+            // Send rejection message to customer
+            await normalText(
+              payment.phoneNumber,
+              `⚠️ **Payment Screenshot Not Clear**\n\nUnfortunately, your payment screenshot could not be verified.\n\n*Order:* ${payment.orderNo}\n*Amount:* ₹${payment.amount}\n\n📸 Please upload a clearer screenshot showing:\n- Transaction ID/Reference\n- Amount transferred\n- Date and time\n\nReply with "Upload Payment Proof" from the menu to submit again. 🙏`
+            );
+          }
         }
 
     }
@@ -1883,6 +2471,12 @@ app.post('/webhook', async (req, res) => {
                     {id : 'escalator_registration', title: 'Escalator NOC '},
                     {id : 'both-registration-1-2', title: 'For both options'},
                 ]
+            )
+        }
+        if(listReply.id === 'upload_payment'){
+            normalText(
+              from,
+              `To upload your payment screenshot, please fill out the form below:\n\n${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}\n\n*Please have the following details ready:*\n- Order Number\n- Amount Paid\n- Clear payment screenshot (JPG or PNG)\n\nOur team will verify your payment and confirm within 24 hours. Thank you! ✅`
             )
         }
         

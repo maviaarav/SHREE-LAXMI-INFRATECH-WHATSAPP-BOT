@@ -18,7 +18,15 @@ const quotationAmount = sequelize.define('quotationAmount', {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false
     },
-    pdfUrl: {
+    pdfData: {
+        type: DataTypes.BLOB,
+        allowNull: true
+    },
+    pdfMimeType: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    pdfOriginalName: {
         type: DataTypes.STRING,
         allowNull: true
     },
