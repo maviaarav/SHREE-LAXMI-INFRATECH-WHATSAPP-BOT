@@ -1545,7 +1545,7 @@ app.post('/premiseRegistrationForm', upload.fields([
 `);
 
     normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}.`);
+normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}.`);
   } catch (error) {
     console.error('Error creating premise registration form data:', error);
     res.status(500).json({ error: 'Something went wrong while submitting premise registration form.' });
@@ -1650,7 +1650,7 @@ app.post('/nocRegistration', async (req,res)=>{
   </html>
 `);
 normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
+normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
   }catch(error){
       console.error("Error fetching NOC registration data:", error);
     res.status(403).json({ error: "Something went wrong" });
@@ -1892,7 +1892,7 @@ app.post('/renewal', async (req,res)=>{
   </html>
 `);
 normalText(phoneNumber, `*Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* http://localhost:3000/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
+normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
 
   }catch(error){
     console.error("Error creating renewal data:", error);
@@ -2267,7 +2267,7 @@ app.post('/webhook', async (req, res) => {
         }
            if(buttonReply.id === 'accept_quotation'){
           normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
-          normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: http://localhost:3000/renewal/${from}`)
+          normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/renewal/${from}`)
 
           const quotation = await quotationAmount.findOne({
             where: { phoneNumber: from },
@@ -2378,25 +2378,25 @@ app.post('/webhook', async (req, res) => {
         if (listReply.id === 'transformer_renewal'){
           normalText(
             from,
-            `To apply for Transformer NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=Transformer-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Transformer NOC Renewal, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/form?type=Transformer-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if (listReply.id === 'DG_renewal'){
           normalText(
             from,
-            `To apply for DG NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=DG-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for DG NOC Renewal, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/form?type=DG-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if (listReply.id === 'lift_renewal'){
           normalText(
             from,
-            `To apply for Lift NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=Lift-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Lift NOC Renewal, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/form?type=Lift-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if (listReply.id === 'escalator_renewal'){
           normalText(
             from,
-            `To apply for Escalator NOC Renewal, please fill out the form below:\n\nhttp://localhost:3000/form?type=Escalator-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Escalator NOC Renewal, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/form?type=Escalator-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if(listReply.id === 'noc_registration'){
@@ -2417,25 +2417,25 @@ app.post('/webhook', async (req, res) => {
         if(listReply.id === 'transformer_registration'){
           normalText(
             from,
-            `To apply for Transformer NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=Transformer-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Transformer NOC Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/NoCRegistrationForm?type=Transformer-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
           if(listReply.id === 'DG_registration'){
           normalText(
             from,
-            `To apply for DG NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=DG-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for DG NOC Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/NoCRegistrationForm?type=DG-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
          if(listReply.id === 'lift_registration'){
           normalText(
             from,
-            `To apply for Lift NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=Lift-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Lift NOC Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/NoCRegistrationForm?type=Lift-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
          if(listReply.id === 'escalator_registration'){
           normalText(
             from,
-            `To apply for Escalator NOC Registration, please fill out the form below:\n\nhttp://localhost:3000/NoCRegistrationForm?type=Escalator-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Escalator NOC Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/NoCRegistrationForm?type=Escalator-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if(listReply.id === 'premise_registation'){
@@ -2452,13 +2452,13 @@ app.post('/webhook', async (req, res) => {
         if(listReply.id === 'lift_PremiseRegistration'){
           normalText(
             from,
-            `To apply for Lift Premise Registration, please fill out the form below:\n\nhttp://localhost:3000/premiseRegistrationForm?type=lift&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Lift\n- Serial Number of Lift(s)\n- Weight of Lift(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Lifts\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Lift Premise Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/premiseRegistrationForm?type=lift&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Lift\n- Serial Number of Lift(s)\n- Weight of Lift(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Lifts\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
          if(listReply.id === 'escalator_PremiseRegistration'){
           normalText(
             from,
-            `To apply for Escalator Premise Registration, please fill out the form below:\n\nhttp://localhost:3000/premiseRegistrationForm?type=escalator&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Escalator\n- Serial Number of Escalator(s)\n- Weight of Escalator(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Escalators\n\nOur team will review your application and get back to you shortly. Thank you!`
+            `To apply for Escalator Premise Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/premiseRegistrationForm?type=escalator&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Escalator\n- Serial Number of Escalator(s)\n- Weight of Escalator(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Escalators\n\nOur team will review your application and get back to you shortly. Thank you!`
           )
         }
         if(listReply.id === 'insurance'){
