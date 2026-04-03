@@ -24,6 +24,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 app.use('/payments', express.static('payments'));
 
+// Ensure required directories exist
+const requiredDirs = ['uploads', 'payments'];
+requiredDirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`✅ Created directory: ${dir}`);
+  }
+});
+
 // Test route
 app.get('/', (req, res) => {
   res.send('Server is running 🚀');
@@ -2629,41 +2638,69 @@ app.post('/webhook', async (req, res) => {
             
         }
            if(buttonReply.id === 'accept_quotation'){
-          normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
-          normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/renewal/${from}`)
+          try {
+            normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
+            normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/renewal/${from}`)
 
-          const quotation = await quotationAmount.findOne({
-            where: { phoneNumber: from },
-            order: [['createdAt', 'DESC']]
-          })
-          await quotation.update({ status: 'accepted' });
-
-          await QRcode(quotation.amount, quotation.orderNo);
-
-          const qrURL = `${process.env.BASE_URL}/payments/qrcode${quotation.orderNo}.png`;
-
-          await axios.post(
-            `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
-            {
-              messaging_product: 'whatsapp',
-              to: from,
-              type: 'image',
-              image: {
-                link: qrURL,
-                caption: `Scan this QR code to pay ₹${quotation.amount} for your ${quotation.type} application.`
-              }
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-                "Content-Type": "application/json"
-              }
+            const quotation = await quotationAmount.findOne({
+              where: { phoneNumber: from },
+              order: [['createdAt', 'DESC']]
+            })
+            
+            if (!quotation) {
+              console.error("❌ Quotation not found for:", from);
+              normalText(from, "❌ Error: Could not find your quotation. Please try again or contact us.");
+              return;
             }
-          )
-           const paymentUploadLink = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
-           normalText(from, `✅ Once paid, please upload your payment screenshot here:\n\n${paymentUploadLink}\n\nThis helps us verify and confirm your payment quickly! 🚀`);
 
+            await quotation.update({ status: 'accepted' });
 
+            // Generate QR code
+            try {
+              await QRcode(quotation.amount, quotation.orderNo);
+              console.log("✅ QR Code generated successfully for order:", quotation.orderNo);
+            } catch (qrError) {
+              console.error("❌ QR Code generation failed:", qrError);
+              normalText(from, "⚠️ QR code generation failed. Please contact us for payment details.");
+              return;
+            }
+
+            const qrURL = `${process.env.BASE_URL}/payments/qrcode${quotation.orderNo}.png`;
+            console.log("📸 Sending QR Code from URL:", qrURL);
+
+            // Send QR code image
+            try {
+              await axios.post(
+                `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+                {
+                  messaging_product: 'whatsapp',
+                  to: from,
+                  type: 'image',
+                  image: {
+                    link: qrURL,
+                    caption: `Scan this QR code to pay ₹${quotation.amount} for your ${quotation.type} application.`
+                  }
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+                    "Content-Type": "application/json"
+                  }
+                }
+              )
+              console.log("✅ QR Code image sent successfully");
+            } catch (imageError) {
+              console.error("❌ Failed to send QR Code image:", imageError.response?.data || imageError.message);
+              normalText(from, "⚠️ Could not send QR code. Please contact us for payment details.");
+            }
+
+            const paymentUploadLink = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
+            normalText(from, `✅ Once paid, please upload your payment screenshot here:\n\n${paymentUploadLink}\n\nThis helps us verify and confirm your payment quickly! 🚀`);
+
+          } catch (error) {
+            console.error("❌ Error in quotation acceptance:", error);
+            normalText(from, "❌ An error occurred while processing your quotation acceptance. Please try again.");
+          }
 
         }
         if(buttonReply.id === 'quotation_reject'){
