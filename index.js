@@ -2159,7 +2159,258 @@ app.get('/form',(req,res)=>{
 
 })
 
+// 📋 META COMPLIANCE: Terms of Service (for Meta app validation)
+app.get('/terms', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service - Shree Laxmi Infratech</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f4f6f9;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #667eea;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #667eea;
+      margin-top: 30px;
+    }
+    .section {
+      margin-bottom: 25px;
+    }
+    .effective-date {
+      background: #e9f3ff;
+      padding: 15px;
+      border-left: 4px solid #667eea;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+    strong {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Terms of Service</h1>
+    <div class="effective-date">
+      <strong>Effective Date:</strong> April 3, 2026
+    </div>
 
+    <div class="section">
+      <h2>1. Acceptance of Terms</h2>
+      <p>By accessing and using this WhatsApp bot service provided by Shree Laxmi Infratech, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
+    </div>
+
+    <div class="section">
+      <h2>2. Use License</h2>
+      <p>Permission is granted to temporarily download one copy of the materials (information or software) on our WhatsApp bot for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:</p>
+      <ul>
+        <li>Modify or copy the materials</li>
+        <li>Use the materials for any commercial purpose or for any public display</li>
+        <li>Attempt to decompile or reverse engineer any software contained on the bot</li>
+        <li>Transmit or distribute the materials to any third party or over any network</li>
+        <li>Remove any copyright or other proprietary notations from the materials</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>3. Disclaimer</h2>
+      <p>The materials on our WhatsApp bot are provided on an 'as is' basis. Shree Laxmi Infratech makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.</p>
+    </div>
+
+    <div class="section">
+      <h2>4. Limitations</h2>
+      <p>In no event shall Shree Laxmi Infratech or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on our bot, even if Shree Laxmi Infratech or an authorized representative has been notified orally or in writing of the possibility of such damage.</p>
+    </div>
+
+    <div class="section">
+      <h2>5. Accuracy of Materials</h2>
+      <p>The materials appearing on our WhatsApp bot could include technical, typographical, or photographic errors. Shree Laxmi Infratech does not warrant that any of the materials on our bot are accurate, complete, or current. Shree Laxmi Infratech may make changes to the materials contained on our bot at any time without notice.</p>
+    </div>
+
+    <div class="section">
+      <h2>6. Links</h2>
+      <p>Shree Laxmi Infratech has not reviewed all of the sites linked to its website and is not responsible for the contents of any such linked site. The inclusion of any link does not imply endorsement by Shree Laxmi Infratech of the site. Use of any such linked website is at the user's own risk.</p>
+    </div>
+
+    <div class="section">
+      <h2>7. Modifications</h2>
+      <p>Shree Laxmi Infratech may revise these terms of service for its website at any time without notice. By using this website, you are agreeing to be bound by the then current version of these terms of service.</p>
+    </div>
+
+    <div class="section">
+      <h2>8. Governing Law</h2>
+      <p>These terms and conditions are governed by and construed in accordance with the laws of India, and you irrevocably submit to the exclusive jurisdiction of the courts in that location.</p>
+    </div>
+
+    <div class="section">
+      <h2>9. Contact Information</h2>
+      <p>If you have any questions about these Terms of Service, please contact us at +${process.env.OWNER_PHONE_NUMBER} via WhatsApp or email.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `);
+});
+
+// 📋 META COMPLIANCE: Privacy Policy (for Meta app validation)
+app.get('/privacy', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Shree Laxmi Infratech</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f4f6f9;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #667eea;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #667eea;
+      margin-top: 30px;
+    }
+    .section {
+      margin-bottom: 25px;
+    }
+    .effective-date {
+      background: #e9f3ff;
+      padding: 15px;
+      border-left: 4px solid #667eea;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+    strong {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <div class="effective-date">
+      <strong>Effective Date:</strong> April 3, 2026
+    </div>
+
+    <div class="section">
+      <h2>1. Introduction</h2>
+      <p>Shree Laxmi Infratech ("we", "us", "our", or "the Company") operates the WhatsApp Bot service. This page informs you of our policies regarding the collection, use, and disclosure of personal data when you use our service and the choices you have associated with that data.</p>
+    </div>
+
+    <div class="section">
+      <h2>2. Information Collection and Use</h2>
+      <p>We collect several different types of information for various purposes to provide and improve our service to you.</p>
+      <h3>Types of Data Collected:</h3>
+      <ul>
+        <li><strong>Personal Data:</strong> Name, phone number, email address, address, and other contact information</li>
+        <li><strong>Application Data:</strong> Information related to your applications (quotations, registrations, renewals)</li>
+        <li><strong>Communication Data:</strong> Messages sent through WhatsApp bot interactions</li>
+        <li><strong>Technical Data:</strong> Device information, IP address, usage patterns</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>3. Use of Data</h2>
+      <p>Shree Laxmi Infratech uses the collected data for various purposes:</p>
+      <ul>
+        <li>To provide and maintain our service</li>
+        <li>To notify you about changes to our service</li>
+        <li>To allow you to participate in interactive features of our service when you choose to do so</li>
+        <li>To provide customer care and support</li>
+        <li>To gather analysis or valuable information so that we can improve our service</li>
+        <li>To monitor the usage of our service</li>
+        <li>To detect, prevent and address technical issues</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>4. Data Storage and Security</h2>
+      <p>The security of your Personal Data is important to us, but remember that no method of transmission over the Internet or method of electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your Personal Data, we cannot guarantee its absolute security.</p>
+      <p>Your data is stored in a PostgreSQL database hosted on secure cloud infrastructure. Access is restricted and monitored.</p>
+    </div>
+
+    <div class="section">
+      <h2>5. Data Retention</h2>
+      <p>We retain your Personal Data only for as long as necessary to provide our services and fulfill the purposes outlined in this Privacy Policy, or as required by law. You can request deletion of your data at any time by contacting us.</p>
+    </div>
+
+    <div class="section">
+      <h2>6. Third-Party Services</h2>
+      <p>Our service uses WhatsApp for communications. Please review WhatsApp's Privacy Policy for their practices regarding personal data.</p>
+      <p>We do not share your personal data with third parties except:</p>
+      <ul>
+        <li>As necessary to provide our services</li>
+        <li>With your explicit consent</li>
+        <li>As required by law</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>7. Your Rights</h2>
+      <p>You have the right to:</p>
+      <ul>
+        <li>Access your personal data</li>
+        <li>Request correction of inaccurate data</li>
+        <li>Request deletion of your data</li>
+        <li>Withdraw consent at any time</li>
+        <li>Opt-out of communications</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>8. Contact Us</h2>
+      <p>If you have any questions about this Privacy Policy or our privacy practices, please contact us:</p>
+      <ul>
+        <li><strong>WhatsApp:</strong> +${process.env.OWNER_PHONE_NUMBER}</li>
+        <li><strong>Company Name:</strong> Shree Laxmi Infratech</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>9. Changes to This Privacy Policy</h2>
+      <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Effective Date" at the top of this Privacy Policy.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `);
+});
 
 // 🔐 Webhook verification (GET)
 app.get('/webhook', (req, res) => {
