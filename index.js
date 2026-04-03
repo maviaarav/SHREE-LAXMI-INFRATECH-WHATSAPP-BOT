@@ -13,7 +13,7 @@ const fs = require('fs')
 
 const port = 3000;
 
-const VERIFY_TOKEN = "my_verify_token";
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
