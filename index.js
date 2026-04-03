@@ -22,16 +22,12 @@ const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
-app.use('/payments', express.static('payments'));
 
-// Ensure required directories exist
-const requiredDirs = ['uploads', 'payments'];
-requiredDirs.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`✅ Created directory: ${dir}`);
-  }
-});
+// Ensure uploads directory exists
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads', { recursive: true });
+  console.log(`✅ Created directory: uploads`);
+}
 
 // Test route
 app.get('/', (req, res) => {
@@ -63,22 +59,23 @@ const upload = multer({storage});
 const paymentStorage = multer.memoryStorage();
 const paymentUpload = multer({storage: paymentStorage});
 
-// function to send QR code for payment
-
-
+// function to send QR code for payment (returns Base64, no file storage)
 const QRcode = async (amount, orderID) =>{
   const upiID = process.env.UPI_ID;
   const comPanyName = 'Shree Laxmi Infratech';
   const UPI_Link = `upi://pay?pa=${upiID}&pn=${encodeURIComponent(comPanyName)}&am=${amount}&cu=INR&tn=${orderID}`
-  const fileName = `qrcode${orderID}.png`
+  
   try{
-    await QRCode.toFile(`payments/${fileName}`, UPI_Link, {
+    // Generate QR code as Base64 data URL (no file storage)
+    const qrDataUrl = await QRCode.toDataURL(UPI_Link, {
       width: 300,
-    })
-    console.log("Image created: ", fileName)
-    return fileName;
+      errorCorrectionLevel: 'H'
+    });
+    
+    console.log("✅ QR Code generated in memory for order:", orderID)
+    return qrDataUrl;
   }catch(error){
-    console.error("Error generating QR code:", error);
+    console.error("❌ Error generating QR code:", error);
     throw error;
   }
 }
@@ -2655,9 +2652,10 @@ app.post('/webhook', async (req, res) => {
 
             await quotation.update({ status: 'accepted' });
 
-            // Generate QR code
+            // Generate QR code (returns Base64 data URL)
+            let qrDataUrl;
             try {
-              await QRcode(quotation.amount, quotation.orderNo);
+              qrDataUrl = await QRcode(quotation.amount, quotation.orderNo);
               console.log("✅ QR Code generated successfully for order:", quotation.orderNo);
             } catch (qrError) {
               console.error("❌ QR Code generation failed:", qrError);
@@ -2665,10 +2663,7 @@ app.post('/webhook', async (req, res) => {
               return;
             }
 
-            const qrURL = `${process.env.BASE_URL}/payments/qrcode${quotation.orderNo}.png`;
-            console.log("📸 Sending QR Code from URL:", qrURL);
-
-            // Send QR code image
+            // Send QR code image directly via Base64
             try {
               await axios.post(
                 `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
@@ -2677,7 +2672,7 @@ app.post('/webhook', async (req, res) => {
                   to: from,
                   type: 'image',
                   image: {
-                    link: qrURL,
+                    data: qrDataUrl.replace('data:image/png;base64,', ''),
                     caption: `Scan this QR code to pay ₹${quotation.amount} for your ${quotation.type} application.`
                   }
                 },
