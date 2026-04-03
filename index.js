@@ -2440,6 +2440,77 @@ app.get('/webhook', (req, res) => {
 const processedMessages = new Set();
 
 
+// ✅ Send QR Code via WhatsApp Media Upload (no server storage)
+const sendQRCodeToWhatsApp = async (phoneNumber, qrBase64, amount, type) => {
+  try {
+    // Step 1: Convert Base64 to Buffer
+    const base64Data = qrBase64.replace('data:image/png;base64,', '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Step 2: Create FormData manually for axios multipart upload
+    const boundary = '----FormBoundary' + Math.random().toString(36).substring(2);
+    const formData = [];
+    
+    formData.push(`--${boundary}`);
+    formData.push('Content-Disposition: form-data; name="messaging_product"');
+    formData.push('');
+    formData.push('whatsapp');
+    
+    formData.push(`--${boundary}`);
+    formData.push('Content-Disposition: form-data; name="file"; filename="qrcode.png"');
+    formData.push('Content-Type: image/png');
+    formData.push('');
+    
+    const bodyWithBoundary = Buffer.concat([
+      Buffer.from(formData.join('\r\n') + '\r\n'),
+      buffer,
+      Buffer.from(`\r\n--${boundary}--\r\n`)
+    ]);
+
+    // Step 3: Upload to WhatsApp Media API
+    console.log("📤 Uploading QR code to WhatsApp Media API...");
+    const mediaResponse = await axios.post(
+      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/media`,
+      bodyWithBoundary,
+      {
+        headers: {
+          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        },
+      }
+    );
+
+    const mediaId = mediaResponse.data.id;
+    console.log("✅ Media uploaded, ID:", mediaId);
+
+    // Step 4: Send image using media ID
+    await axios.post(
+      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'image',
+        image: {
+          id: mediaId,
+          caption: `Scan this QR code to pay ₹${amount} for your ${type} application.`
+        }
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    console.log("✅ QR Code image sent successfully to", phoneNumber);
+    return true;
+  } catch (error) {
+    console.error("❌ Error sending QR code:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
 // ✅ Send List Function
 
 const listButton = async (to, text , options) =>{
@@ -2663,30 +2734,13 @@ app.post('/webhook', async (req, res) => {
               return;
             }
 
-            // Send QR code image directly via Base64
+            // Send QR code via WhatsApp Media API
             try {
-              await axios.post(
-                `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
-                {
-                  messaging_product: 'whatsapp',
-                  to: from,
-                  type: 'image',
-                  image: {
-                    data: qrDataUrl.replace('data:image/png;base64,', ''),
-                    caption: `Scan this QR code to pay ₹${quotation.amount} for your ${quotation.type} application.`
-                  }
-                },
-                {
-                  headers: {
-                    Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-                    "Content-Type": "application/json"
-                  }
-                }
-              )
+              await sendQRCodeToWhatsApp(from, qrDataUrl, quotation.amount, quotation.type);
               console.log("✅ QR Code image sent successfully");
             } catch (imageError) {
               console.error("❌ Failed to send QR Code image:", imageError.response?.data || imageError.message);
-              normalText(from, "⚠️ Could not send QR code. Please contact us for payment details.");
+              normalText(from, "⚠️ Could not send QR code image. Please contact us at +918006243900 for payment details.");
             }
 
             const paymentUploadLink = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
