@@ -7,7 +7,7 @@ const renewalTable = sequelize.define('renewalTable',{
         allowNull : false,
     },
     capacity: {
-        type : DataTypes.INTEGER,
+        type : DataTypes.TEXT,
         allowNull : true,
     },
     quantity:{
@@ -15,7 +15,7 @@ const renewalTable = sequelize.define('renewalTable',{
         allowNull : false,
     },
     kva : {
-        type : DataTypes.INTEGER,
+        type : DataTypes.TEXT,
         allowNull : true,
     }
 })
