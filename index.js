@@ -1128,6 +1128,250 @@ app.post('/premiseRegistration', async (req,res)=>{
   
 })
 
+// Fetch premise registration data for a specific phone number
+app.get('/premiseRegistration/:phoneNumber', async(req,res)=>{
+  const { phoneNumber } = req.params;
+  try{
+    console.log(`Fetching premise registration data for phone number: ${phoneNumber}...`);
+    const user = await User.findOne({
+      where: { phoneNumber },
+      include: [{ model: premiseRegistration }]
+    });
+    if(!user){
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user);
+  }catch(error){
+    console.error(`❌ Error fetching premise registration data for ${phoneNumber}:`, error);
+    res.status(403).json({ 
+      error: "Something went wrong",
+      details: error.message 
+    });
+  }
+})
+
+// View premise registration data in HTML format
+app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
+  const { phoneNumber } = req.params;
+  try{
+    console.log(`Fetching premise registration view for phone number: ${phoneNumber}...`);
+    const user = await User.findOne({
+      where: { phoneNumber },
+      include: [{ model: premiseRegistration }]
+    });
+    if(!user || !user.premiseRegistrations || user.premiseRegistrations.length === 0){
+      return res.status(404).send(`<h2>No premise registration found for ${phoneNumber}</h2>`);
+    }
+    
+    const premises = user.premiseRegistrations;
+    let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Premise Registration Details</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background: #f4f6f9;
+          padding: 20px;
+        }
+        .container {
+          max-width: 1000px;
+          margin: 0 auto;
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+          color: #667eea;
+          border-bottom: 2px solid #667eea;
+          padding-bottom: 10px;
+        }
+        .premise-card {
+          background: #f9f9f9;
+          border-left: 4px solid #667eea;
+          padding: 15px;
+          margin: 15px 0;
+          border-radius: 4px;
+        }
+        .field-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+          margin: 10px 0;
+        }
+        .field {
+          background: white;
+          padding: 10px;
+          border-radius: 4px;
+          border-left: 3px solid #667eea;
+        }
+        .label {
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 5px;
+        }
+        .value {
+          color: #666;
+        }
+        .user-info {
+          background: #e9f3ff;
+          padding: 15px;
+          border-radius: 4px;
+          margin-bottom: 20px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>📋 Premise Registration Details</h1>
+        
+        <div class="user-info">
+          <h3>Customer Information</h3>
+          <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
+          <p><strong>Phone:</strong> ${user.phoneNumber}</p>
+          <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
+        </div>
+    `;
+    
+    premises.forEach((premise, index) => {
+      htmlContent += `
+        <div class="premise-card">
+          <h3>Premise Registration #${index + 1}</h3>
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Owner Name</div>
+              <div class="value">${premise.OwnerName || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Type</div>
+              <div class="value">${premise.type || 'N/A'}</div>
+            </div>
+          </div>
+          
+          <div class="field-row">
+            <div class="field">
+              <div class="label">House No.</div>
+              <div class="value">${premise.House_no || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Colony Name</div>
+              <div class="value">${premise.ColonyName || 'N/A'}</div>
+            </div>
+          </div>
+          
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Locality</div>
+              <div class="value">${premise.Locality || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Landmark</div>
+              <div class="value">${premise.Landmark || 'N/A'}</div>
+            </div>
+          </div>
+          
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Agent Name</div>
+              <div class="value">${premise.AgentName || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Agent Mobile</div>
+              <div class="value">${premise.MobileAgent || 'N/A'}</div>
+            </div>
+          </div>
+          
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Quantity</div>
+              <div class="value">${premise.quantity || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Registration Type</div>
+              <div class="value">${premise.RegistrationNeworOld || 'N/A'}</div>
+            </div>
+          </div>
+          
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Proposed Start Date</div>
+              <div class="value">${premise.proposedDateofcommencement ? new Date(premise.proposedDateofcommencement).toLocaleDateString() : 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Proposed End Date</div>
+              <div class="value">${premise.proposedDateofcompletion ? new Date(premise.proposedDateofcompletion).toLocaleDateString() : 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    htmlContent += `
+      </div>
+    </body>
+    </html>
+    `;
+    
+    res.send(htmlContent);
+  }catch(error){
+    console.error(`❌ Error fetching premise registration view for ${phoneNumber}:`, error);
+    res.status(403).send(`<h2>Error: ${error.message}</h2>`);
+  }
+})
+
+// Send premise registration data to owner via WhatsApp
+app.get('/admin/sendPremiseToOwner/:phoneNumber', async(req,res)=>{
+  const { phoneNumber } = req.params;
+  try{
+    console.log(`Sending premise registration data for ${phoneNumber} to owner...`);
+    
+    const user = await User.findOne({
+      where: { phoneNumber },
+      include: [{ model: premiseRegistration }]
+    });
+    
+    if(!user || !user.premiseRegistrations || user.premiseRegistrations.length === 0){
+      return res.status(404).json({ error: "No premise registration found" });
+    }
+    
+    const premise = user.premiseRegistrations[0];
+    const viewUrl = `${process.env.BASE_URL}/premiseRegistration/view/${phoneNumber}`;
+    
+    const message = `
+✅ *New Premise Registration*
+
+👤 *Customer:* ${user.name}
+📱 *Phone:* +${phoneNumber}
+🔧 *Type:* ${premise.type}
+📍 *Location:* ${premise.Locality}, ${premise.ColonyName}
+🏠 *Owner:* ${premise.OwnerName}
+👨‍💼 *Agent:* ${premise.AgentName}
+📞 *Quantity:* ${premise.quantity}
+
+*View Full Details:*
+${viewUrl}
+
+Please review and take necessary action.
+    `;
+    
+    await normalText(process.env.OWNER_PHONE_NUMBER, message);
+    
+    res.json({ 
+      success: true, 
+      message: "Premise registration data sent to owner",
+      detailsUrl: viewUrl 
+    });
+  }catch(error){
+    console.error(`❌ Error sending premise data to owner:`, error);
+    res.status(403).json({ 
+      error: "Something went wrong",
+      details: error.message 
+    });
+  }
+})
+
 app.get('/premiseRegistrationForm', async (req, res) => {
   const { phoneNumber, type = 'lift' } = req.query;
 
