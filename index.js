@@ -1886,14 +1886,58 @@ app.post('/renewal', async (req,res)=>{
   try{
     const {name, phoneNumber, address, type, capacity, quantity, kva} = req.body;
 
+    // Validate all required fields
+    if (!name || !name.trim()) {
+      return res.status(400).json({ 
+        error: "Invalid input",
+        details: "Name is required"
+      });
+    }
+
+    if (!phoneNumber || !phoneNumber.toString().trim()) {
+      return res.status(400).json({ 
+        error: "Invalid input",
+        details: "Phone number is required"
+      });
+    }
+
+    if (!address || !address.trim()) {
+      return res.status(400).json({ 
+        error: "Invalid input",
+        details: "Address is required"
+      });
+    }
+
+    if (!type || !type.toString().trim()) {
+      return res.status(400).json({ 
+        error: "Invalid input",
+        details: "Type is required"
+      });
+    }
+
+    // Validate required fields
+    if (!quantity || quantity === '' || isNaN(quantity)) {
+      return res.status(400).json({ 
+        error: "Invalid input",
+        details: "Quantity must be a valid number"
+      });
+    }
+
+    const quantityValue = parseInt(quantity, 10);
+    if (quantityValue <= 0) {
+      return res.status(400).json({ 
+        error: "Invalid input",
+        details: "Quantity must be greater than 0"
+      });
+    }
    
     let kvaValue = null;
     let capacityValue = null;
     if(type === 'Transformer-Renewal' || type === 'DG-Renewal'){
-      kvaValue = kva;
+      kvaValue = Array.isArray(kva) ? kva : (kva ? [kva] : []);
     }
     if(type === 'Lift-Renewal' || type === 'Escalator-Renewal'){
-      capacityValue = capacity;
+      capacityValue = Array.isArray(capacity) ? capacity : (capacity ? [capacity] : []);
     }
 
     console.log("Received renewal data:", req.body);
@@ -1907,9 +1951,9 @@ app.post('/renewal', async (req,res)=>{
 
     const renewalTypeDetails = await RenewalTable.create({
       type,
-      capacity: JSON.stringify(capacityValue),
-      quantity,
-      kva: JSON.stringify(kvaValue),
+      capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
+      quantity: quantityValue,
+      kva: kvaValue && kvaValue.length > 0 ? JSON.stringify(kvaValue) : null,
       userId: user.id
     })
     res.send(`
