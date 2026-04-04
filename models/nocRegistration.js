@@ -7,7 +7,7 @@ const nocRegistration = sequelize.define('nocRegistration',{
         allowNull : false,
     },
     capacity: {
-        type : DataTypes.INTEGER,
+        type : DataTypes.TEXT,
         allowNull : true,
     },
     quantity:{
@@ -15,7 +15,7 @@ const nocRegistration = sequelize.define('nocRegistration',{
         allowNull : false,
     },
     kva : {
-        type : DataTypes.INTEGER,
+        type : DataTypes.TEXT,
         allowNull : true,
     },
            

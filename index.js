@@ -2437,62 +2437,276 @@ app.post('/premiseRegistrationForm', upload.fields([
   }
 });
 app.get('/nocRegistration', async (req,res)=>{
-  try{
-    console.log("Fetching NOC registration data...");
-    const data = await User.findAll({
+  try {
+    const { phoneNumber } = req.query;
+
+    if (!phoneNumber) {
+      console.log("Fetching NOC registration data...");
+      const data = await User.findAll({
+        include: [{ model: nocRegistration }]
+      });
+      return res.json(data);
+    }
+
+    const candidates = buildPhoneCandidates(phoneNumber);
+    const last10 = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+
+    let user = await User.findOne({
+      where: { phoneNumber: { [Op.in]: candidates } },
       include: [{ model: nocRegistration }]
     });
-    res.json(data);
-  }catch(error){
+
+    if (!user && last10) {
+      user = await User.findOne({
+        where: { phoneNumber: { [Op.like]: `%${last10}` } },
+        include: [{ model: nocRegistration }]
+      });
+    }
+
+    if (!user || !user.nocRegistrations || user.nocRegistrations.length === 0) {
+      return res.status(404).json({ error: `No NOC registration found for ${phoneNumber}` });
+    }
+
+    res.json(user);
+  } catch (error) {
     console.error("Error fetching NOC registration data:", error);
-    res.status(403).json({ error: "Something went wrong" });
+    res.status(403).json({ error: "Something went wrong", details: error.message });
+  }
+})
+
+app.get('/nocRegistration/view/:phoneNumber', async(req,res)=>{
+  const { phoneNumber } = req.params;
+  try {
+    console.log(`Fetching NOC registration view for phone number: ${phoneNumber}...`);
+
+    const candidates = buildPhoneCandidates(phoneNumber);
+    const last10 = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+
+    let user = await User.findOne({
+      where: { phoneNumber: { [Op.in]: candidates } },
+      include: [{ model: nocRegistration }]
+    });
+
+    if (!user && last10) {
+      user = await User.findOne({
+        where: { phoneNumber: { [Op.like]: `%${last10}` } },
+        include: [{ model: nocRegistration }]
+      });
+    }
+
+    if (!user || !user.nocRegistrations || user.nocRegistrations.length === 0) {
+      return res.status(404).send(`<h2>No NOC registration found for ${phoneNumber}</h2>`);
+    }
+
+    const parseJsonList = (value) => {
+      if (!value) {
+        return [];
+      }
+
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [value];
+      } catch (error) {
+        return [value];
+      }
+    };
+
+    const nocs = user.nocRegistrations;
+    let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>NOC Registration Details</title>
+      <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .record-card { background: #f9f9f9; border-left: 4px solid #667eea; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 10px 0; }
+        .field { background: white; padding: 10px; border-radius: 4px; border-left: 3px solid #667eea; }
+        .label { font-weight: bold; color: #333; margin-bottom: 5px; }
+        .value { color: #666; }
+        .copy-inline { margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; color: #1e293b; font-size: 12px; font-weight: 700; padding: 6px 10px; cursor: pointer; }
+        .user-info { background: #e9f3ff; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>📋 NOC Registration Details</h1>
+        <div class="user-info">
+          <h3>Customer Information</h3>
+          <p><strong>Name:</strong> <span class="copy-target">${user.name || 'N/A'}</span></p>
+          <p><strong>Phone:</strong> <span class="copy-target">${user.phoneNumber || 'N/A'}</span></p>
+          <p><strong>Address:</strong> <span class="copy-target">${user.address || 'N/A'}</span></p>
+        </div>
+    `;
+
+    nocs.forEach((noc, index) => {
+      const kvaList = parseJsonList(noc.kva);
+      const capacityList = parseJsonList(noc.capacity);
+
+      htmlContent += `
+        <div class="record-card">
+          <h3>NOC Registration #${index + 1}</h3>
+          <div class="field-row">
+            <div class="field"><div class="label">Type</div><div class="value">${noc.type || 'N/A'}</div></div>
+            <div class="field"><div class="label">Quantity</div><div class="value">${noc.quantity ?? 'N/A'}</div></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><div class="label">KVA</div><div class="value">${kvaList.join(', ') || 'N/A'}</div></div>
+            <div class="field"><div class="label">Capacity</div><div class="value">${capacityList.join(', ') || 'N/A'}</div></div>
+          </div>
+        </div>
+      `;
+    });
+
+    htmlContent += `
+      </div>
+      <script>
+        (function () {
+          function copyTextSafe(value) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              return navigator.clipboard.writeText(value);
+            }
+
+            return new Promise(function (resolve, reject) {
+              try {
+                const temp = document.createElement('textarea');
+                temp.value = value;
+                temp.style.position = 'fixed';
+                temp.style.left = '-9999px';
+                document.body.appendChild(temp);
+                temp.focus();
+                temp.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(temp);
+                if (ok) resolve(); else reject(new Error('copy command failed'));
+              } catch (err) {
+                reject(err);
+              }
+            });
+          }
+
+          const nodes = document.querySelectorAll('.value, .copy-target');
+          Array.prototype.forEach.call(nodes, function (element) {
+            const valueText = (element.textContent || '').trim();
+            if (!valueText || valueText === 'N/A') return;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'copy-inline';
+            copyBtn.textContent = 'Copy';
+
+            copyBtn.addEventListener('click', function () {
+              copyTextSafe(valueText)
+                .then(function () {
+                  const original = copyBtn.textContent;
+                  copyBtn.textContent = 'Copied';
+                  setTimeout(function () { copyBtn.textContent = original; }, 1200);
+                })
+                .catch(function (error) {
+                  console.error('Copy failed:', error);
+                });
+            });
+
+            element.insertAdjacentElement('afterend', copyBtn);
+          });
+        })();
+      </script>
+    </body>
+    </html>
+    `;
+
+    res.send(htmlContent);
+  } catch (error) {
+    console.error(`❌ Error fetching NOC registration view for ${phoneNumber}:`, error);
+    res.status(403).send(`<h2>Error: ${error.message}</h2>`);
   }
 })
 
 app.get('/nocRegistration/:phoneNumber', async(req,res)=>{
   const { phoneNumber } = req.params;
-  try{
+  try {
     console.log(`Fetching NOC registration data for phone number: ${phoneNumber}...`);
-    const user = await User.findOne({
-      where: { phoneNumber },
-      
+
+    const candidates = buildPhoneCandidates(phoneNumber);
+    const last10 = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+
+    let user = await User.findOne({
+      where: { phoneNumber: { [Op.in]: candidates } },
+      include: [{ model: nocRegistration }]
     });
-    if(!user){
-      return res.status(404).json({ error: "User not found" });
+
+    if (!user && last10) {
+      user = await User.findOne({
+        where: { phoneNumber: { [Op.like]: `%${last10}` } },
+        include: [{ model: nocRegistration }]
+      });
+    }
+
+    if(!user || !user.nocRegistrations || user.nocRegistrations.length === 0){
+      return res.status(404).json({ error: "No NOC registration found" });
     }
     res.json(user);
-  }catch(error){
+  } catch(error) {
     console.error(`Error fetching NOC registration data for ${phoneNumber}:`, error);
-    res.status(403).json({ error: "Something went wrong" });
+    res.status(403).json({ error: "Something went wrong", details: error.message });
   }
 
 })
 app.post('/nocRegistration', async (req,res)=>{
   try{
-    const {name, phoneNumber, address, type, capacity, quantity, kva} = req.body;
-    let user = await User.findOne({where: { phoneNumber }})
-    if(!user){
-      user = await User.create({name, phoneNumber, address})
+    const { name, phoneNumber, address, type, capacity, quantity, kva } = req.body;
+    const selectedType = String(type || '').trim();
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Invalid input', details: 'Name is required' });
     }
+    if (!phoneNumber || !phoneNumber.toString().trim()) {
+      return res.status(400).json({ error: 'Invalid input', details: 'Phone number is required' });
+    }
+    if (!address || !address.trim()) {
+      return res.status(400).json({ error: 'Invalid input', details: 'Address is required' });
+    }
+    if (!selectedType) {
+      return res.status(400).json({ error: 'Invalid input', details: 'Type is required' });
+    }
+    if (!quantity || quantity === '' || isNaN(quantity)) {
+      return res.status(400).json({ error: 'Invalid input', details: 'Quantity must be a valid number' });
+    }
+
+    const quantityValue = parseInt(quantity, 10);
+    if (quantityValue <= 0) {
+      return res.status(400).json({ error: 'Invalid input', details: 'Quantity must be greater than 0' });
+    }
+
+    let user = await User.findOne({ where: { phoneNumber } });
+    if(!user){
+      user = await User.create({ name, phoneNumber, address });
+    }
+
     let kvaValue = null;
     let capacityValue = null;
 
-    if(type === 'Transformer-NOC-Registration' || type === 'DG-NOC-Registration'){
-      kvaValue = kva;
+    if(selectedType === 'Transformer-NOC-Registration' || selectedType === 'DG-NOC-Registration'){
+      kvaValue = Array.isArray(kva) ? kva : (kva ? [kva] : []);
     }
-    if(type === 'Lift-NOC-Registration' || type === 'Escalator-NOC-Registration'){
-      capacityValue = capacity;
+    if(selectedType === 'Lift-NOC-Registration' || selectedType === 'Escalator-NOC-Registration'){
+      capacityValue = Array.isArray(capacity) ? capacity : (capacity ? [capacity] : []);
     }
 
-    console.log("Received renewal data:", req.body);
+    console.log("Received NOC registration data:", req.body);
 
-    const nocTypeDetails = await nocRegistration.create({
-      type,
-      capacity: JSON.stringify(capacityValue),
-      quantity,
-      kva: JSON.stringify(kvaValue),
+    await nocRegistration.create({
+      type: selectedType,
+      capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
+      quantity: quantityValue,
+      kva: kvaValue && kvaValue.length > 0 ? JSON.stringify(kvaValue) : null,
       userId: user.id
-    })
+    });
+
+    const nocDetailsUrl = `${APP_BASE_URL}/nocRegistration/view/${encodeURIComponent(phoneNumber)}`;
+    const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${encodeURIComponent(phoneNumber)}&name=${encodeURIComponent(name || '')}&type=${encodeURIComponent(selectedType || '')}`;
 
     res.send(`
   <!DOCTYPE html>
@@ -2528,14 +2742,14 @@ app.post('/nocRegistration', async (req,res)=>{
     <div class="card">
 
   <h2>Thank you ${name}!</h2>
-  <p>Your ${type} application has been submitted.</p>
+  <p>Your ${selectedType} application has been submitted.</p>
       <p>We will contact you shortly.</p>
     </div>
   </body>
   </html>
 `);
-normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* ${APP_BASE_URL}/quotationForm?phoneNumber=${encodeURIComponent(phoneNumber)}&name=${encodeURIComponent(name || '')}&type=${encodeURIComponent(type || '')}`);
+    await normalText(phoneNumber, `Thank you ${name}! Your NOC Registration for *${selectedType}* application has been submitted. \n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${nocDetailsUrl}`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New NOC Registration Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\n*View Full Details:*\n${nocDetailsUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
   }catch(error){
       console.error("❌ Error creating NOC registration:", {
         message: error.message,
@@ -2611,6 +2825,13 @@ app.get('/NoCRegistrationForm',(req,res)=>{
       margin-top: 5px;
       border-radius: 6px;
       border: 1px solid #ccc;
+      font-family: inherit;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
     }
 
     button {
@@ -2659,7 +2880,7 @@ app.get('/NoCRegistrationForm',(req,res)=>{
       Type: ${type.toUpperCase()}
     </div>
 
-    <form method="POST" action="/nocRegistration">
+    <form id="nocForm" method="POST" action="/nocRegistration">
     
 
       <input type="hidden" name="type" value="${type}" />
@@ -2672,18 +2893,68 @@ app.get('/NoCRegistrationForm',(req,res)=>{
       <input type="text" name="address" required />
 
       <label>Quantity</label>
-      <input type="number" id="quantity" name="quantity" required />
+      <input type="number" id="quantity" name="quantity" min="1" required />
 
       <div id="dynamicFields"></div>
 
       <button type="submit">Submit Application</button>
     </form>
+    <div id="formError" style="display:none; margin-top:10px; color:#b91c1c; font-weight:700; font-size:13px;"></div>
   </div>
 
 <script>
   const type = "${type}";
   const quantityInput = document.getElementById('quantity');
   const dynamicFields = document.getElementById('dynamicFields');
+  const nocForm = document.getElementById('nocForm');
+  const formError = document.getElementById('formError');
+
+  function markInputError(input) {
+    if (!input) return;
+    input.style.borderColor = '#dc2626';
+    input.style.boxShadow = '0 0 0 2px rgba(220,38,38,0.18)';
+  }
+
+  function clearInputError(input) {
+    if (!input) return;
+    input.style.borderColor = '#ccc';
+    input.style.boxShadow = 'none';
+  }
+
+  function showError(message) {
+    formError.textContent = message;
+    formError.style.display = 'block';
+  }
+
+  function clearError() {
+    formError.textContent = '';
+    formError.style.display = 'none';
+  }
+
+  function validateForm() {
+    clearError();
+    let isValid = true;
+
+    const requiredInputs = nocForm.querySelectorAll('input[required]');
+    requiredInputs.forEach(function (input) {
+      if (!input.value || !String(input.value).trim()) {
+        markInputError(input);
+        isValid = false;
+      }
+    });
+
+    if (quantityInput.value && Number(quantityInput.value) <= 0) {
+      markInputError(quantityInput);
+      isValid = false;
+    }
+
+    if (!isValid) {
+      showError('Please fill all required fields correctly.');
+      return false;
+    }
+
+    return true;
+  }
 
   quantityInput.addEventListener('input', function () {
     const qty = parseInt(this.value) || 0;
@@ -2702,6 +2973,36 @@ app.get('/NoCRegistrationForm',(req,res)=>{
           <input type="number" name="capacity[]" required />
         \`;
       }
+    }
+
+    const newlyAdded = dynamicFields.querySelectorAll('input');
+    newlyAdded.forEach(function (input) {
+      input.addEventListener('input', function () {
+        clearInputError(input);
+        clearError();
+      });
+      input.addEventListener('change', function () {
+        clearInputError(input);
+        clearError();
+      });
+    });
+  });
+
+  nocForm.querySelectorAll('input').forEach(function (input) {
+    input.addEventListener('input', function () {
+      clearInputError(input);
+      clearError();
+    });
+
+    input.addEventListener('change', function () {
+      clearInputError(input);
+      clearError();
+    });
+  });
+
+  nocForm.addEventListener('submit', function (event) {
+    if (!validateForm()) {
+      event.preventDefault();
     }
   });
 </script>
@@ -3527,6 +3828,108 @@ app.get('/privacy', (req, res) => {
     <div class="section">
       <h2>9. Changes to This Privacy Policy</h2>
       <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Effective Date" at the top of this Privacy Policy.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `);
+});
+
+// 📋 META COMPLIANCE: Data Deletion Instructions (for Meta app validation)
+app.get('/data-deletion', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Deletion Instructions - Shree Laxmi Infratech</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f4f6f9;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #667eea;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #667eea;
+      margin-top: 30px;
+    }
+    .section {
+      margin-bottom: 25px;
+    }
+    .highlight {
+      background: #e9f3ff;
+      padding: 15px;
+      border-left: 4px solid #667eea;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+    strong {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Data Deletion Instructions</h1>
+
+    <div class="highlight">
+      To request deletion of your personal data, contact us on WhatsApp at <strong>+${process.env.OWNER_PHONE_NUMBER}</strong> with the message: <strong>"Delete my data"</strong>.
+    </div>
+
+    <div class="section">
+      <h2>1. How to Request Data Deletion</h2>
+      <ol>
+        <li>Open WhatsApp and send a message to our support number.</li>
+        <li>Use your registered phone number.</li>
+        <li>Write: "Delete my data" and include your full name.</li>
+        <li>Our team may ask for verification to confirm account ownership.</li>
+      </ol>
+    </div>
+
+    <div class="section">
+      <h2>2. What Data Will Be Deleted</h2>
+      <p>After successful verification, we will delete or anonymize your personal information from our active systems, including:</p>
+      <ul>
+        <li>Profile and contact details</li>
+        <li>Application and registration records linked to your account</li>
+        <li>Payment proof references and uploaded documents, where applicable</li>
+        <li>Conversation-related records stored by our bot systems</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>3. Processing Time</h2>
+      <p>We aim to process verified data deletion requests within 7 to 15 business days. In some cases, legal or operational retention requirements may apply.</p>
+    </div>
+
+    <div class="section">
+      <h2>4. Data That May Be Retained</h2>
+      <p>We may retain limited information where required by law, dispute resolution, fraud prevention, or regulatory compliance. Retained data will be restricted and protected.</p>
+    </div>
+
+    <div class="section">
+      <h2>5. Contact for Deletion Requests</h2>
+      <ul>
+        <li><strong>WhatsApp:</strong> +${process.env.OWNER_PHONE_NUMBER}</li>
+        <li><strong>Company Name:</strong> Shree Laxmi Infratech</li>
+        <li><strong>Company Website:</strong> <a href="https://shreelaxmi-infra.vercel.app/" target="_blank" rel="noopener noreferrer">https://shreelaxmi-infra.vercel.app/</a></li>
+      </ul>
     </div>
   </div>
 </body>
