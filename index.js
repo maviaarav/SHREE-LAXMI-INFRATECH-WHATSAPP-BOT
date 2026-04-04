@@ -123,6 +123,7 @@ app.get('/quotationForm', (req,res)=>{
     <html>
     <head>
       <title>Quotation Form - Shree Laxmi Infratech</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       <style>
         * {
           margin: 0;
@@ -260,16 +261,28 @@ app.get('/quotationForm', (req,res)=>{
         }
 
         @media (max-width: 600px) {
+          body {
+            align-items: flex-start;
+            padding: 12px;
+          }
+
           .container {
-            padding: 25px;
+            padding: 18px;
+            border-radius: 10px;
+            max-height: none;
+            margin: 10px 0 18px;
           }
 
           .header h1 {
-            font-size: 24px;
+            font-size: 22px;
           }
 
           .input-group {
             grid-template-columns: 1fr;
+          }
+
+          input, textarea, select, .btn-submit {
+            font-size: 16px;
           }
         }
       </style>
@@ -618,7 +631,9 @@ app.get('/renewal', async (req,res)=>{
       });
     }
 
-    if (!user || !user.RenewalTables || user.RenewalTables.length === 0) {
+    const renewals = getRenewalRows(user);
+
+    if (!user || renewals.length === 0) {
       return res.status(404).send(`<h2>No renewal record found for ${phoneNumber}</h2>`);
     }
 
@@ -632,7 +647,6 @@ app.get('/renewal', async (req,res)=>{
       }
     };
 
-    const renewals = user.RenewalTables;
     let htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -656,9 +670,9 @@ app.get('/renewal', async (req,res)=>{
         <h1>📋 Renewal Details</h1>
         <div class="user-info">
           <h3>Customer Information</h3>
-          <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
-          <p><strong>Phone:</strong> ${user.phoneNumber}</p>
-          <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
+          <p><strong>Name:</strong> <span class="copy-target">${user.name || 'N/A'}</span></p>
+          <p><strong>Phone:</strong> <span class="copy-target">${user.phoneNumber || 'N/A'}</span></p>
+          <p><strong>Address:</strong> <span class="copy-target">${user.address || 'N/A'}</span></p>
         </div>
     `;
 
@@ -684,28 +698,55 @@ app.get('/renewal', async (req,res)=>{
     htmlContent += `
       </div>
       <script>
-        document.querySelectorAll('.value').forEach(function (element) {
-          const valueText = (element.textContent || '').trim();
-          if (!valueText || valueText === 'N/A') return;
-
-          const copyBtn = document.createElement('button');
-          copyBtn.type = 'button';
-          copyBtn.className = 'copy-inline';
-          copyBtn.textContent = 'Copy';
-
-          copyBtn.addEventListener('click', async function () {
-            try {
-              await navigator.clipboard.writeText(valueText);
-              const original = copyBtn.textContent;
-              copyBtn.textContent = 'Copied';
-              setTimeout(function () { copyBtn.textContent = original; }, 1200);
-            } catch (error) {
-              console.error('Copy failed:', error);
+        (function () {
+          function copyTextSafe(value) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              return navigator.clipboard.writeText(value);
             }
-          });
 
-          element.insertAdjacentElement('afterend', copyBtn);
-        });
+            return new Promise(function (resolve, reject) {
+              try {
+                const temp = document.createElement('textarea');
+                temp.value = value;
+                temp.style.position = 'fixed';
+                temp.style.left = '-9999px';
+                document.body.appendChild(temp);
+                temp.focus();
+                temp.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(temp);
+                if (ok) resolve(); else reject(new Error('copy command failed'));
+              } catch (err) {
+                reject(err);
+              }
+            });
+          }
+
+          const nodes = document.querySelectorAll('.value, .copy-target');
+          Array.prototype.forEach.call(nodes, function (element) {
+            const valueText = (element.textContent || '').trim();
+            if (!valueText || valueText === 'N/A') return;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'copy-inline';
+            copyBtn.textContent = 'Copy';
+
+            copyBtn.addEventListener('click', function () {
+              copyTextSafe(valueText)
+                .then(function () {
+                  const original = copyBtn.textContent;
+                  copyBtn.textContent = 'Copied';
+                  setTimeout(function () { copyBtn.textContent = original; }, 1200);
+                })
+                .catch(function (error) {
+                  console.error('Copy failed:', error);
+                });
+            });
+
+            element.insertAdjacentElement('afterend', copyBtn);
+          });
+        })();
       </script>
     </body>
     </html>
@@ -761,6 +802,7 @@ app.get('/paymentUploadForm', async (req, res) => {
     <html>
     <head>
       <title>Upload Payment Proof - Shree Laxmi Infratech</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       <style>
         * {
           margin: 0;
@@ -919,6 +961,27 @@ app.get('/paymentUploadForm', async (req, res) => {
           color: #28a745;
           font-size: 13px;
           margin-top: 5px;
+        }
+
+        @media (max-width: 600px) {
+          body {
+            align-items: flex-start;
+            padding: 12px;
+          }
+
+          .container {
+            padding: 18px;
+            border-radius: 10px;
+            margin: 10px 0 18px;
+          }
+
+          .header h1 {
+            font-size: 22px;
+          }
+
+          input, textarea, select, button, .file-label {
+            font-size: 16px;
+          }
         }
       </style>
     </head>
@@ -1305,7 +1368,7 @@ app.get('/premiseRegistration/:phoneNumber', async(req,res)=>{
     console.log(`Fetching premise registration data for phone number: ${phoneNumber}...`);
     const user = await User.findOne({
       where: { phoneNumber },
-      include: [{ model: premiseRegistration }]
+      include: [premiseLightInclude]
     });
     if(!user){
       return res.status(404).json({ error: "User not found" });
@@ -1327,7 +1390,7 @@ app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
     console.log(`Fetching premise registration view for phone number: ${phoneNumber}...`);
     const user = await User.findOne({
       where: { phoneNumber },
-      include: [{ model: premiseRegistration }]
+      include: [premiseLightInclude]
     });
     if(!user || !user.premiseRegistrations || user.premiseRegistrations.length === 0){
       return res.status(404).send(`<h2>No premise registration found for ${phoneNumber}</h2>`);
@@ -1429,9 +1492,9 @@ app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
         
         <div class="user-info">
           <h3>Customer Information</h3>
-          <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
-          <p><strong>Phone:</strong> ${user.phoneNumber}</p>
-          <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
+          <p><strong>Name:</strong> <span class="copy-target">${user.name || 'N/A'}</span></p>
+          <p><strong>Phone:</strong> <span class="copy-target">${user.phoneNumber || 'N/A'}</span></p>
+          <p><strong>Address:</strong> <span class="copy-target">${user.address || 'N/A'}</span></p>
         </div>
     `;
     
@@ -1570,6 +1633,63 @@ app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
     
     htmlContent += `
       </div>
+      <script>
+        (function () {
+          function copyTextSafe(value) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              return navigator.clipboard.writeText(value);
+            }
+
+            return new Promise(function (resolve, reject) {
+              try {
+                const temp = document.createElement('textarea');
+                temp.value = value;
+                temp.style.position = 'fixed';
+                temp.style.left = '-9999px';
+                document.body.appendChild(temp);
+                temp.focus();
+                temp.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(temp);
+                if (ok) resolve(); else reject(new Error('copy command failed'));
+              } catch (err) {
+                reject(err);
+              }
+            });
+          }
+
+          const nodes = document.querySelectorAll('.value, .copy-target');
+          Array.prototype.forEach.call(nodes, function (element) {
+            if (element.querySelector('a')) {
+              return;
+            }
+
+            const valueText = (element.textContent || '').trim();
+            if (!valueText || valueText === 'N/A') {
+              return;
+            }
+
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'copy-inline';
+            copyBtn.textContent = 'Copy';
+
+            copyBtn.addEventListener('click', function () {
+              copyTextSafe(valueText)
+                .then(function () {
+                  const original = copyBtn.textContent;
+                  copyBtn.textContent = 'Copied';
+                  setTimeout(function () { copyBtn.textContent = original; }, 1200);
+                })
+                .catch(function (error) {
+                  console.error('Copy failed:', error);
+                });
+            });
+
+            element.insertAdjacentElement('afterend', copyBtn);
+          });
+        })();
+      </script>
     </body>
     </html>
     `;
@@ -1589,7 +1709,7 @@ app.get('/admin/sendPremiseToOwner/:phoneNumber', async(req,res)=>{
     
     const user = await User.findOne({
       where: { phoneNumber },
-      include: [{ model: premiseRegistration }]
+      include: [premiseLightInclude]
     });
     
     if(!user || !user.premiseRegistrations || user.premiseRegistrations.length === 0){
@@ -1788,6 +1908,10 @@ app.get('/premiseRegistrationForm', async (req, res) => {
       .slide { padding: 18px; }
       .header { padding: 16px 18px; }
       .nav { padding: 14px 18px 18px; }
+      .card { border-radius: 10px; }
+      .header h2 { font-size: 21px; }
+      input, select, textarea, .btn { font-size: 16px; }
+      .btn { min-height: 44px; }
     }
   </style>
 </head>
@@ -1805,15 +1929,15 @@ app.get('/premiseRegistrationForm', async (req, res) => {
 
       <div id="slides" class="slides">
         <section class="slide">
-          <h3 class="section-title">Page 1: Owner and Agent Details</h3>
+          <h3 class="section-title">Page 1: Company and Agent Details</h3>
           <div class="grid">
-            <div class="field"><label>Name</label><input type="text" name="name" required /></div>
+            <div class="field"><label>Company Name</label><input type="text" name="name" required /></div>
             <div class="field"><label>Phone Number</label><input type="text" value="${phoneNumber}" disabled /></div>
             <div class="field full"><label>Address</label><input type="text" name="address" required /></div>
-            <div class="field"><label>Owner Name</label><input type="text" name="OwnerName" required /></div>
+            <div class="field"><label>Pincode</label><input type="text" name="pincode" pattern="[0-9]{6}" maxlength="6" required /></div>
             <div class="field"><label>Agent Name</label><input type="text" name="AgentName" required /></div>
             <div class="field"><label>Agent Email</label><input type="email" name="EmailAgent" required /></div>
-            <div class="field"><label>Agent Mobile</label><input type="text" name="MobileAgent" required /></div>
+            <div class="field"><label>Agent Mobile</label><input type="tel" name="MobileAgent" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" minlength="10" required /></div>
           </div>
         </section>
 
@@ -1826,8 +1950,8 @@ app.get('/premiseRegistrationForm', async (req, res) => {
             <div class="field"><label>Locality</label><input type="text" name="Locality" required /></div>
             <div class="field"><label>Registration</label>
               <select name="RegistrationNeworOld" required>
-                <option value="new">New</option>
-                <option value="old">Old</option>
+                <option value="yes">Yes</option>
+                <option value="existing">Existing</option>
               </select>
             </div>
             <div class="field"><label>Private/Public</label>
@@ -1851,13 +1975,13 @@ app.get('/premiseRegistrationForm', async (req, res) => {
               </select>
             </div>
             <div class="field"><label>OC Available</label>
-              <select name="ocAvailable" required>
+              <select name="ocAvailable" id="ocAvailableSelect" required>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
             </div>
-            <div class="field"><label>OC Number</label><input type="text" name="ocNumber" /></div>
-            <div class="field"><label>OC Date</label><input type="date" name="ocDate" /></div>
+            <div class="field" id="ocNumberField"><label>OC Number</label><input type="text" name="ocNumber" id="ocNumberInput" /></div>
+            <div class="field" id="ocDateField"><label>OC Date</label><input type="date" name="ocDate" id="ocDateInput" /></div>
             <div class="field"><label>Make</label><input type="text" name="Make" /></div>
             <div class="field"><label>Quantity</label><input type="number" name="quantity" min="1" value="1" required /></div>
             <div class="field full"><label>Serial Numbers</label><textarea id="serialNoInput" placeholder="Enter comma-separated serial numbers" required></textarea></div>
@@ -1870,10 +1994,10 @@ app.get('/premiseRegistrationForm', async (req, res) => {
         <section class="slide">
           <h3 class="section-title">Page 3: Files Upload</h3>
           <div class="grid">
-            <div class="field full"><label>Approved Building Plan</label><input type="file" name="ApprovedbuildingplanDocument" accept=".pdf,.jpg,.jpeg,.png" /></div>
-            <div class="field full"><label>Drawings of Premise</label><input type="file" name="DrawingsofPremise" accept=".pdf,.jpg,.jpeg,.png" /></div>
-            <div class="field full"><label>Safety Certificate</label><input type="file" name="SafetyCertificate" accept=".pdf,.jpg,.jpeg,.png" /></div>
-            <div class="field full"><label>Owner Signature</label><input type="file" name="SignatureofOwner" accept=".pdf,.jpg,.jpeg,.png" /></div>
+            <div class="field full"><label>Approved Building Plan</label><input type="file" name="ApprovedbuildingplanDocument" accept=".pdf,.jpg,.jpeg,.png" required /></div>
+            <div class="field full"><label>Drawings of Premise</label><input type="file" name="DrawingsofPremise" accept=".pdf,.jpg,.jpeg,.png" required /></div>
+            <div class="field full"><label>Safety Certificate</label><input type="file" name="SafetyCertificate" accept=".pdf,.jpg,.jpeg,.png" required /></div>
+            <div class="field full"><label>Owner Signature</label><input type="file" name="SignatureofOwner" accept=".pdf,.jpg,.jpeg,.png" required /></div>
           </div>
         </section>
       </div>
@@ -1883,6 +2007,7 @@ app.get('/premiseRegistrationForm', async (req, res) => {
         <button type="button" id="nextBtn" class="btn btn-next">Next</button>
         <button type="submit" id="submitBtn" class="btn btn-submit hidden">Submit Application</button>
       </div>
+      <div id="formError" style="display:none; margin: 0 24px 18px; color:#b91c1c; font-weight:700; font-size:13px;"></div>
     </form>
   </div>
 
@@ -1893,11 +2018,141 @@ app.get('/premiseRegistrationForm', async (req, res) => {
     const nextBtn = document.getElementById('nextBtn');
     const submitBtn = document.getElementById('submitBtn');
     const typeSelect = document.getElementById('typeSelect');
+    const registrationSelect = document.querySelector('select[name="RegistrationNeworOld"]');
+    const ocAvailableSelect = document.getElementById('ocAvailableSelect');
+    const ocNumberField = document.getElementById('ocNumberField');
+    const ocDateField = document.getElementById('ocDateField');
+    const ocNumberInput = document.getElementById('ocNumberInput');
+    const ocDateInput = document.getElementById('ocDateInput');
+    const commencementInput = document.querySelector('input[name="proposedDateofcommencement"]');
+    const completionInput = document.querySelector('input[name="proposedDateofcompletion"]');
+    const formError = document.getElementById('formError');
     const form = document.getElementById('premiseForm');
 
     let step = 0;
 
     typeSelect.value = "${type}";
+
+    function showError(message) {
+      formError.textContent = message;
+      formError.style.display = 'block';
+    }
+
+    function clearError() {
+      formError.textContent = '';
+      formError.style.display = 'none';
+    }
+
+    function clearInputError(input) {
+      if (!input) return;
+      input.style.borderColor = '#cfd6df';
+      input.style.boxShadow = 'none';
+    }
+
+    function markInputError(input) {
+      if (!input) return;
+      input.style.borderColor = '#dc2626';
+      input.style.boxShadow = '0 0 0 2px rgba(220,38,38,0.18)';
+    }
+
+    function getTodayIso() {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      return now.toISOString().split('T')[0];
+    }
+
+    function validateDateRules() {
+      const isNewRegistration = registrationSelect.value === 'yes' || registrationSelect.value === 'new';
+      if (!isNewRegistration) {
+        return true;
+      }
+
+      const today = getTodayIso();
+      const invalidDate = [commencementInput, completionInput].find(function (input) {
+        return input && input.value && input.value < today;
+      });
+
+      if (invalidDate) {
+        markInputError(invalidDate);
+        showError('According to the new lift act proposed by government, "Commentment and completion date can not be of past event if do so then select *existing* , it could cost you *15000*, challan fee from government as late fee.');
+        return false;
+      }
+
+      return true;
+    }
+
+    function validateStep(stepIndex) {
+      clearError();
+
+      const currentSlide = document.querySelectorAll('.slide')[stepIndex];
+      if (!currentSlide) {
+        return true;
+      }
+
+      const requiredInputs = currentSlide.querySelectorAll('input[required], select[required], textarea[required]');
+      let isValid = true;
+
+      requiredInputs.forEach(function (input) {
+        const isOcHidden = (input === ocNumberInput || input === ocDateInput) && ocAvailableSelect.value === 'false';
+        if (isOcHidden) {
+          clearInputError(input);
+          return;
+        }
+
+        if (input.type === 'file') {
+          if (!input.files || input.files.length === 0) {
+            markInputError(input);
+            isValid = false;
+          }
+          return;
+        }
+
+        if (!input.value || !String(input.value).trim()) {
+          markInputError(input);
+          isValid = false;
+          return;
+        }
+
+        if (input.name === 'pincode' && !/^[0-9]{6}$/.test(String(input.value).trim())) {
+          markInputError(input);
+          isValid = false;
+        }
+
+        if (input.name === 'MobileAgent' && !/^[0-9]{10}$/.test(String(input.value).trim())) {
+          markInputError(input);
+          isValid = false;
+        }
+      });
+
+      if (!isValid) {
+        showError('Please fill all required fields correctly.');
+        return false;
+      }
+
+      return validateDateRules();
+    }
+
+    function toggleOcFields() {
+      const hideOc = ocAvailableSelect.value === 'false';
+
+      ocNumberField.style.display = hideOc ? 'none' : '';
+      ocDateField.style.display = hideOc ? 'none' : '';
+
+      if (hideOc) {
+        ocNumberInput.value = '';
+        ocDateInput.value = '';
+      }
+    }
+
+    function applyDateRules() {
+      const isNewRegistration = registrationSelect.value === 'yes' || registrationSelect.value === 'new';
+      const today = getTodayIso();
+
+      [commencementInput, completionInput].forEach(function (input) {
+        if (!input) return;
+        input.min = isNewRegistration ? today : '';
+      });
+    }
 
     function updateStep() {
       slides.style.transform = 'translateX(-' + (step * 33.3333) + '%)';
@@ -1908,6 +2163,10 @@ app.get('/premiseRegistrationForm', async (req, res) => {
     }
 
     nextBtn.addEventListener('click', function () {
+      if (!validateStep(step)) {
+        return;
+      }
+
       if (step < 2) {
         step += 1;
         updateStep();
@@ -1921,7 +2180,12 @@ app.get('/premiseRegistrationForm', async (req, res) => {
       }
     });
 
-    form.addEventListener('submit', function () {
+    form.addEventListener('submit', function (event) {
+      if (!validateStep(0) || !validateStep(1) || !validateStep(2)) {
+        event.preventDefault();
+        return;
+      }
+
       const serialRaw = document.getElementById('serialNoInput').value || '';
       const weightRaw = document.getElementById('weightInput').value || '';
 
@@ -1938,6 +2202,34 @@ app.get('/premiseRegistrationForm', async (req, res) => {
       document.getElementById('serialNoJson').value = JSON.stringify(serialArray);
       document.getElementById('weightJson').value = JSON.stringify({ weight: weightArray });
     });
+
+    [
+      ...document.querySelectorAll('input, select, textarea')
+    ].forEach(function (input) {
+      input.addEventListener('input', function () {
+        clearInputError(input);
+        clearError();
+      });
+
+      input.addEventListener('change', function () {
+        clearInputError(input);
+        clearError();
+      });
+    });
+
+    registrationSelect.addEventListener('change', function () {
+      applyDateRules();
+      validateDateRules();
+    });
+
+    [commencementInput, completionInput].forEach(function (input) {
+      input.addEventListener('change', validateDateRules);
+    });
+
+    ocAvailableSelect.addEventListener('change', toggleOcFields);
+
+    toggleOcFields();
+    applyDateRules();
 
     updateStep();
   </script>
@@ -1957,6 +2249,7 @@ app.post('/premiseRegistrationForm', upload.fields([
       name,
       phoneNumber,
       address,
+      pincode,
       OwnerName,
       House_no,
       ColonyName,
@@ -1984,11 +2277,27 @@ app.post('/premiseRegistrationForm', upload.fields([
       return res.status(400).json({ error: 'Missing required field: phoneNumber' });
     }
 
+    if (!MobileAgent || !/^\d{10}$/.test(String(MobileAgent).trim())) {
+      return res.status(400).json({ error: 'Agent Mobile must be exactly 10 digits.' });
+    }
+
+    if (!pincode || !/^\d{6}$/.test(String(pincode).trim())) {
+      return res.status(400).json({ error: 'Pincode is required and must be 6 digits.' });
+    }
+
+    if (!MobileAgent || !/^\d{10}$/.test(String(MobileAgent).trim())) {
+      return res.status(400).json({ error: 'Agent Mobile must be exactly 10 digits.' });
+    }
+
+    const mergedAddress = `${address || ''}${address ? ', ' : ''}${pincode}`;
+
     const selectedType = String(Array.isArray(type) ? type[0] : type || '').trim().toLowerCase();
 
     let user = await User.findOne({ where: { phoneNumber } });
     if (!user) {
-      user = await User.create({ name, phoneNumber, address });
+      user = await User.create({ name, phoneNumber, address: mergedAddress });
+    } else if ((!user.address || user.address === address) && mergedAddress) {
+      await user.update({ address: mergedAddress });
     }
 
     let serialNoValue = [];
@@ -2025,8 +2334,21 @@ app.post('/premiseRegistrationForm', upload.fields([
     const safetyDoc = getUploadedDocument('SafetyCertificate');
     const signature = getUploadedDocument('SignatureofOwner');
 
+    const ownerNameValue = (OwnerName && String(OwnerName).trim()) || (name && String(name).trim()) || 'N/A';
+
+    const isNewRegistration = String(RegistrationNeworOld || '').toLowerCase() === 'yes' || String(RegistrationNeworOld || '').toLowerCase() === 'new';
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if (isNewRegistration) {
+      if (proposedDateofcommencement && proposedDateofcommencement < todayIso) {
+        return res.status(400).json({ error: 'According to the new lift act proposed by government, "Commentment and completion date can not be of past event if do so then select *existing* , it could cost you *15000*, challan fee from government as late fee.' });
+      }
+      if (proposedDateofcompletion && proposedDateofcompletion < todayIso) {
+        return res.status(400).json({ error: 'According to the new lift act proposed by government, "Commentment and completion date can not be of past event if do so then select *existing* , it could cost you *15000*, challan fee from government as late fee.' });
+      }
+    }
+
     await premiseRegistration.create({
-      OwnerName,
+      OwnerName: ownerNameValue,
       House_no,
       ColonyName,
       Landmark,
@@ -2039,8 +2361,8 @@ app.post('/premiseRegistrationForm', upload.fields([
       whetherPrivateorpublic,
       type: selectedType || type,
       ocAvailable: ocAvailable === 'true' || ocAvailable === true,
-      ocNumber: ocNumber || null,
-      ocDate: ocDate || null,
+      ocNumber: (ocAvailable === 'true' || ocAvailable === true) ? (ocNumber || null) : null,
+      ocDate: (ocAvailable === 'true' || ocAvailable === true) ? (ocDate || null) : null,
       Make: Make || null,
       serialNo: JSON.stringify(serialNoValue),
       weight: JSON.stringify(weightArray),
@@ -2062,9 +2384,9 @@ app.post('/premiseRegistrationForm', upload.fields([
     const viewUrl = `${APP_BASE_URL}/premiseRegistration/view/${phoneNumber}`;
     const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
 
-    await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${address || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${viewUrl}`);
+    await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${mergedAddress || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${viewUrl}`);
 
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${ownerNameValue}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n📬 *Pincode:* ${pincode || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
 
     res.send(`
 <!DOCTYPE html>
@@ -2213,7 +2535,7 @@ app.post('/nocRegistration', async (req,res)=>{
   </html>
 `);
 normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
+normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* ${APP_BASE_URL}/quotationForm?phoneNumber=${encodeURIComponent(phoneNumber)}&name=${encodeURIComponent(name || '')}&type=${encodeURIComponent(type || '')}`);
   }catch(error){
       console.error("❌ Error creating NOC registration:", {
         message: error.message,
@@ -2238,6 +2560,7 @@ app.get('/NoCRegistrationForm',(req,res)=>{
 <html>
 <head>
   <title>NOC Registration Form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
   <style>
     body {
@@ -2245,19 +2568,20 @@ app.get('/NoCRegistrationForm',(req,res)=>{
       background: #f4f6f9;
       display: flex;
       justify-content: center;
-      align-items: center;
-      height: 100vh;
+      align-items: flex-start;
+      min-height: 100vh;
       margin: 0;
+      padding: 16px;
     }
 
     .container {
       background: white;
       padding: 30px;
       border-radius: 12px;
-      width: 420px;
+      width: 100%;
+      max-width: 460px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-      overflow-y: auto;
-      max-height: 90vh;
+      margin: 12px 0;
     }
 
     h2 {
@@ -2303,6 +2627,25 @@ app.get('/NoCRegistrationForm',(req,res)=>{
 
     button:hover {
       background: #0056b3;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+
+      .container {
+        padding: 18px;
+        border-radius: 10px;
+      }
+
+      h2 {
+        font-size: 22px;
+      }
+
+      input, button {
+        font-size: 16px;
+      }
     }
   </style>
 </head>
@@ -2430,7 +2773,9 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
       });
     }
 
-    if (!user || !user.RenewalTables || user.RenewalTables.length === 0) {
+    const renewals = getRenewalRows(user);
+
+    if (!user || renewals.length === 0) {
       return res.status(404).send(`<h2>No renewal record found for ${phoneNumber}</h2>`);
     }
 
@@ -2447,7 +2792,6 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
       }
     };
 
-    const renewals = user.RenewalTables;
     let htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -2524,9 +2868,9 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
 
         <div class="user-info">
           <h3>Customer Information</h3>
-          <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
-          <p><strong>Phone:</strong> ${user.phoneNumber}</p>
-          <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
+          <p><strong>Name:</strong> <span class="copy-target">${user.name || 'N/A'}</span></p>
+          <p><strong>Phone:</strong> <span class="copy-target">${user.phoneNumber || 'N/A'}</span></p>
+          <p><strong>Address:</strong> <span class="copy-target">${user.address || 'N/A'}</span></p>
         </div>
     `;
 
@@ -2565,34 +2909,61 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
     htmlContent += `
       </div>
       <script>
-        document.querySelectorAll('.value').forEach(function (element) {
-          if (element.querySelector('a')) {
-            return;
-          }
-
-          const valueText = (element.textContent || '').trim();
-          if (!valueText || valueText === 'N/A') {
-            return;
-          }
-
-          const copyBtn = document.createElement('button');
-          copyBtn.type = 'button';
-          copyBtn.className = 'copy-inline';
-          copyBtn.textContent = 'Copy';
-
-          copyBtn.addEventListener('click', async function () {
-            try {
-              await navigator.clipboard.writeText(valueText);
-              const original = copyBtn.textContent;
-              copyBtn.textContent = 'Copied';
-              setTimeout(function () { copyBtn.textContent = original; }, 1200);
-            } catch (error) {
-              console.error('Copy failed:', error);
+        (function () {
+          function copyTextSafe(value) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              return navigator.clipboard.writeText(value);
             }
-          });
 
-          element.insertAdjacentElement('afterend', copyBtn);
-        });
+            return new Promise(function (resolve, reject) {
+              try {
+                const temp = document.createElement('textarea');
+                temp.value = value;
+                temp.style.position = 'fixed';
+                temp.style.left = '-9999px';
+                document.body.appendChild(temp);
+                temp.focus();
+                temp.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(temp);
+                if (ok) resolve(); else reject(new Error('copy command failed'));
+              } catch (err) {
+                reject(err);
+              }
+            });
+          }
+
+          const nodes = document.querySelectorAll('.value, .copy-target');
+          Array.prototype.forEach.call(nodes, function (element) {
+            if (element.querySelector('a')) {
+              return;
+            }
+
+            const valueText = (element.textContent || '').trim();
+            if (!valueText || valueText === 'N/A') {
+              return;
+            }
+
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'copy-inline';
+            copyBtn.textContent = 'Copy';
+
+            copyBtn.addEventListener('click', function () {
+              copyTextSafe(valueText)
+                .then(function () {
+                  const original = copyBtn.textContent;
+                  copyBtn.textContent = 'Copied';
+                  setTimeout(function () { copyBtn.textContent = original; }, 1200);
+                })
+                .catch(function (error) {
+                  console.error('Copy failed:', error);
+                });
+            });
+
+            element.insertAdjacentElement('afterend', copyBtn);
+          });
+        })();
       </script>
     </body>
     </html>
@@ -2758,6 +3129,7 @@ app.get('/form',(req,res)=>{
 <html>
 <head>
   <title>NOC Renewal Form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
   <style>
     body {
@@ -2765,19 +3137,20 @@ app.get('/form',(req,res)=>{
       background: #f4f6f9;
       display: flex;
       justify-content: center;
-      align-items: center;
-      height: 100vh;
+      align-items: flex-start;
+      min-height: 100vh;
       margin: 0;
+      padding: 16px;
     }
 
     .container {
       background: white;
       padding: 30px;
       border-radius: 12px;
-      width: 420px;
+      width: 100%;
+      max-width: 460px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-      overflow-y: auto;
-      max-height: 90vh;
+      margin: 12px 0;
     }
 
     h2 {
@@ -2823,6 +3196,25 @@ app.get('/form',(req,res)=>{
 
     button:hover {
       background: #0056b3;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+
+      .container {
+        padding: 18px;
+        border-radius: 10px;
+      }
+
+      h2 {
+        font-size: 22px;
+      }
+
+      input, button {
+        font-size: 16px;
+      }
     }
   </style>
 </head>
@@ -3330,6 +3722,22 @@ const normalText = async (to, text) =>{
 
 const APP_BASE_URL = process.env.BASE_URL || 'https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com';
 
+const premiseLightInclude = {
+  model: premiseRegistration,
+  attributes: {
+    exclude: [
+      'ApprovedbuildingplanDocument',
+      'ApprovedbuildingplanDocumentMimeType',
+      'DrawingsofPremise',
+      'DrawingsofPremiseMimeType',
+      'SafetyCertificate',
+      'SafetyCertificateMimeType',
+      'SignatureofOwner',
+      'SignatureofOwnerMimeType'
+    ]
+  }
+};
+
 const buildPhoneCandidates = (rawPhone) => {
   const raw = String(rawPhone || '').trim();
   const digits = raw.replace(/\D/g, '');
@@ -3343,6 +3751,16 @@ const buildPhoneCandidates = (rawPhone) => {
     `91${last10}`,
     `+91${last10}`
   ].filter(Boolean)));
+};
+
+const getRenewalRows = (user) => {
+  if (!user) {
+    return [];
+  }
+
+  const plainUser = typeof user.toJSON === 'function' ? user.toJSON() : user;
+  const rows = plainUser.RenewalTables || plainUser.renewalTables || user.RenewalTables || user.renewalTables || [];
+  return Array.isArray(rows) ? rows : [];
 };
 
 app.post('/webhook', async (req, res) => {
