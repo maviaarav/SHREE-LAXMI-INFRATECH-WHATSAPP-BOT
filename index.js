@@ -4003,6 +4003,8 @@ const sendQRCodeToWhatsApp = async (phoneNumber, qrBase64, amount, type) => {
     console.log("✅ Media uploaded, ID:", mediaId);
 
     // Step 4: Send image using media ID
+    await sendTypingOn(phoneNumber);
+    await wait(1200);
     await axios.post(
       `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
       {
@@ -4032,8 +4034,33 @@ const sendQRCodeToWhatsApp = async (phoneNumber, qrBase64, amount, type) => {
 
 // ✅ Send List Function
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const sendTypingOn = async (to) => {
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'typing_on'
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  } catch (error) {
+    console.error('⚠️ typing_on failed:', error.response?.data || error.message);
+  }
+};
+
 const listButton = async (to, text , options) =>{
     try{
+        await sendTypingOn(to);
+    await wait(1200);
         await axios.post(
             `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
             {
@@ -4072,6 +4099,8 @@ const listButton = async (to, text , options) =>{
 // ✅ Send Button Function
 const sendButton = async (to, text, buttons) => {
   try {
+    await sendTypingOn(to);
+    await wait(1200);
     await axios.post(
       `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
       {
@@ -4104,23 +4133,26 @@ const sendButton = async (to, text, buttons) => {
   }
 };
 const normalText = async (to, text) =>{
-  return axios.post(
-        `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
-        {
-          messaging_product: 'whatsapp',
-          to,
-          text: { body: text }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json"
-          }
+  try {
+    await sendTypingOn(to);
+    await wait(1200);
+    return await axios.post(
+      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        text: { body: text }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
         }
-      )
-      .catch(error => {
-        console.error("❌ Error sending text message:", error.response?.data || error.message);
-      });
+      }
+    );
+  } catch (error) {
+    console.error("❌ Error sending text message:", error.response?.data || error.message);
+  }
 }
 
 const APP_BASE_URL = process.env.BASE_URL || 'https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com';
@@ -4230,20 +4262,7 @@ app.post('/webhook', async (req, res) => {
         return res.sendStatus(200);
       }
       // fallback for unknown text
-      await axios.post(
-        `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
-        {
-          messaging_product: "whatsapp",
-          to: from,
-          text: { body: "Sorry I didn't understand that 😔\n\nPlease send *hi* to start." }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      await normalText(from, "Sorry I didn't understand that 😔\n\nPlease send *hi* to start.");
 
       return res.sendStatus(200);
     }

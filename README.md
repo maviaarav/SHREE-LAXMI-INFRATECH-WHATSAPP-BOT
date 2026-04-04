@@ -62,6 +62,7 @@ This WhatsApp Bot is designed to streamline the business operations of Shree Lax
    - Application history tracking
    - Payment proof storage
    - Document management
+   - Chat-like typing indicator before bot responses
 
 ### 6. **Admin Features**
    - Owner notifications on all applications
