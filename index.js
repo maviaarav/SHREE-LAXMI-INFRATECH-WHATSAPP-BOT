@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const axios = require('axios');
+const { Op } = require('sequelize');
 dotenv = require('dotenv');
 dotenv.config();
 const { sequelize } = require('./models/relationship');
@@ -1289,6 +1290,17 @@ app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
         .value {
           color: #666;
         }
+          .copy-inline {
+            margin-top: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #f8fafc;
+            color: #1e293b;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 6px 10px;
+            cursor: pointer;
+          }
         .user-info {
           background: #e9f3ff;
           padding: 15px;
@@ -1617,23 +1629,6 @@ app.get('/premiseRegistrationForm', async (req, res) => {
       font-family: inherit;
     }
 
-    .copy-btn {
-      margin-top: 8px;
-      padding: 8px 12px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      background: #f8fafc;
-      color: #1e293b;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      width: fit-content;
-    }
-
-    .copy-btn:hover {
-      background: #e2e8f0;
-    }
-
     textarea {
       min-height: 84px;
       resize: vertical;
@@ -1788,42 +1783,6 @@ app.get('/premiseRegistrationForm', async (req, res) => {
 
     let step = 0;
 
-    function attachCopyButtons(scope) {
-      const copyTargets = scope.querySelectorAll('input:not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]), select, textarea');
-
-      copyTargets.forEach(function (field) {
-        if (field.dataset.copyAttached === 'true') {
-          return;
-        }
-
-        field.dataset.copyAttached = 'true';
-
-        const copyButton = document.createElement('button');
-        copyButton.type = 'button';
-        copyButton.className = 'copy-btn';
-        copyButton.textContent = 'Copy Value';
-
-        copyButton.addEventListener('click', async function () {
-          const value = field.value || '';
-
-          try {
-            await navigator.clipboard.writeText(value);
-            const originalText = copyButton.textContent;
-            copyButton.textContent = 'Copied';
-            setTimeout(function () {
-              copyButton.textContent = originalText;
-            }, 1200);
-          } catch (error) {
-            field.focus();
-            field.select?.();
-            document.execCommand('copy');
-          }
-        });
-
-        field.insertAdjacentElement('afterend', copyButton);
-      });
-    }
-
     typeSelect.value = "${type}";
 
     function updateStep() {
@@ -1865,8 +1824,6 @@ app.get('/premiseRegistrationForm', async (req, res) => {
       document.getElementById('serialNoJson').value = JSON.stringify(serialArray);
       document.getElementById('weightJson').value = JSON.stringify({ weight: weightArray });
     });
-
-    attachCopyButtons(form);
 
     updateStep();
   </script>
@@ -2218,24 +2175,6 @@ app.get('/NoCRegistrationForm',(req,res)=>{
       border: 1px solid #ccc;
     }
 
-    .copy-btn {
-      width: auto;
-      padding: 8px 12px;
-      margin-top: 8px;
-      background: #f8fafc;
-      color: #1e293b;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      align-self: flex-start;
-    }
-
-    .copy-btn:hover {
-      background: #e2e8f0;
-    }
-
     button {
       width: 100%;
       padding: 12px;
@@ -2324,10 +2263,21 @@ app.get('/renewal/:phoneNumber', async(req,res)=>{
   const { phoneNumber } = req.params;
   try{
     console.log(`Fetching renewal data for phone number: ${phoneNumber}...`);
-    const user = await User.findOne({
-      where: { phoneNumber },
+    const candidates = buildPhoneCandidates(phoneNumber);
+    const last10 = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+
+    let user = await User.findOne({
+      where: { phoneNumber: { [Op.in]: candidates } },
       include: [{ model: RenewalTable }]
     });
+
+    if (!user && last10) {
+      user = await User.findOne({
+        where: { phoneNumber: { [Op.like]: `%${last10}` } },
+        include: [{ model: RenewalTable }]
+      });
+    }
+
     if(!user){
       return res.status(404).json({ error: "User not found" });
     }
@@ -2351,10 +2301,20 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
   try {
     console.log(`Fetching renewal view for phone number: ${phoneNumber}...`);
 
-    const user = await User.findOne({
-      where: { phoneNumber },
+    const candidates = buildPhoneCandidates(phoneNumber);
+    const last10 = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+
+    let user = await User.findOne({
+      where: { phoneNumber: { [Op.in]: candidates } },
       include: [{ model: RenewalTable }]
     });
+
+    if (!user && last10) {
+      user = await User.findOne({
+        where: { phoneNumber: { [Op.like]: `%${last10}` } },
+        include: [{ model: RenewalTable }]
+      });
+    }
 
     if (!user || !user.RenewalTables || user.RenewalTables.length === 0) {
       return res.status(404).send(`<h2>No renewal record found for ${phoneNumber}</h2>`);
@@ -2425,6 +2385,17 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
         .value {
           color: #666;
         }
+        .copy-inline {
+          margin-top: 6px;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          background: #f8fafc;
+          color: #1e293b;
+          font-size: 12px;
+          font-weight: 700;
+          padding: 6px 10px;
+          cursor: pointer;
+        }
         .user-info {
           background: #e9f3ff;
           padding: 15px;
@@ -2479,6 +2450,36 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
 
     htmlContent += `
       </div>
+      <script>
+        document.querySelectorAll('.value').forEach(function (element) {
+          if (element.querySelector('a')) {
+            return;
+          }
+
+          const valueText = (element.textContent || '').trim();
+          if (!valueText || valueText === 'N/A') {
+            return;
+          }
+
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'copy-inline';
+          copyBtn.textContent = 'Copy';
+
+          copyBtn.addEventListener('click', async function () {
+            try {
+              await navigator.clipboard.writeText(valueText);
+              const original = copyBtn.textContent;
+              copyBtn.textContent = 'Copied';
+              setTimeout(function () { copyBtn.textContent = original; }, 1200);
+            } catch (error) {
+              console.error('Copy failed:', error);
+            }
+          });
+
+          element.insertAdjacentElement('afterend', copyBtn);
+        });
+      </script>
     </body>
     </html>
     `;
@@ -2747,42 +2748,6 @@ app.get('/form',(req,res)=>{
   const quantityInput = document.getElementById('quantity');
   const dynamicFields = document.getElementById('dynamicFields');
 
-  function attachCopyButtons(scope) {
-    const copyTargets = scope.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea');
-
-    copyTargets.forEach(function (field) {
-      if (field.dataset.copyAttached === 'true') {
-        return;
-      }
-
-      field.dataset.copyAttached = 'true';
-
-      const copyButton = document.createElement('button');
-      copyButton.type = 'button';
-      copyButton.className = 'copy-btn';
-      copyButton.textContent = 'Copy Value';
-
-      copyButton.addEventListener('click', async function () {
-        const value = field.value || '';
-
-        try {
-          await navigator.clipboard.writeText(value);
-          const originalText = copyButton.textContent;
-          copyButton.textContent = 'Copied';
-          setTimeout(function () {
-            copyButton.textContent = originalText;
-          }, 1200);
-        } catch (error) {
-          field.focus();
-          field.select?.();
-          document.execCommand('copy');
-        }
-      });
-
-      field.insertAdjacentElement('afterend', copyButton);
-    });
-  }
-
   quantityInput.addEventListener('input', function () {
     const qty = parseInt(this.value) || 0;
     dynamicFields.innerHTML = '';
@@ -2801,11 +2766,7 @@ app.get('/form',(req,res)=>{
         \`;
       }
     }
-
-    attachCopyButtons(dynamicFields);
   });
-
-  attachCopyButtons(document.getElementById('form') || document);
 </script>
 
 </body>
@@ -3254,6 +3215,21 @@ const normalText = async (to, text) =>{
 }
 
 const APP_BASE_URL = process.env.BASE_URL || 'https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com';
+
+const buildPhoneCandidates = (rawPhone) => {
+  const raw = String(rawPhone || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+
+  return Array.from(new Set([
+    raw,
+    digits,
+    `+${digits}`,
+    last10,
+    `91${last10}`,
+    `+91${last10}`
+  ].filter(Boolean)));
+};
 
 app.post('/webhook', async (req, res) => {
   try {
