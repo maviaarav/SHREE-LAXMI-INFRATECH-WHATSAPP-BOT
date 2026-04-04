@@ -1041,50 +1041,101 @@ app.get('/premiseRegistration', async (req,res)=>{
 })
 
 app.post('/premiseRegistration', async (req,res)=>{
-  const { name, phoneNumber, address, OwnerName,House_no,ColonyName,Landmark,Locality,EmailAgent,MobileAgent,AgentName,RegistrationNeworOld,whetherPrivateorpublic,whetherCommercialorResidential,type,ocAvailable,ocNumber,ocDate,Make,serialNo,weight,proposedDateofcommencement,proposedDateofcompletion,ApprovedbuildingplanDocument,DrawingsofPremise,SafetyCertificate,SignatureofOwner,personCapacity , quantity } = req.body
-  let user = await User.findOne({
-    where: {phoneNumber},
-  })
-  if(!user){
-     user = await User.create({name, phoneNumber, address})
-  }
-  console.log("Receiving Premise Registration details: ", req.body)
+  try {
+    const {
+      name,
+      phoneNumber,
+      address,
+      OwnerName,
+      House_no,
+      ColonyName,
+      Landmark,
+      Locality,
+      EmailAgent,
+      MobileAgent,
+      AgentName,
+      RegistrationNeworOld,
+      whetherPrivateorpublic,
+      whetherCommercialorResidential,
+      type,
+      ocAvailable,
+      ocNumber,
+      ocDate,
+      Make,
+      serialNo,
+      weight,
+      proposedDateofcommencement,
+      proposedDateofcompletion,
+      quantity
+    } = req.body;
 
-  const PersonJsonData = JSON.parse(weight)
-  const NoOfPerson = PersonJsonData.weight.map(n => Number(n) / 68)
-  console.log("Number of Persons", NoOfPerson)
+    if (!phoneNumber) {
+      return res.status(400).json({ error: 'Missing required field: phoneNumber' });
+    }
 
+    let user = await User.findOne({ where: { phoneNumber } });
+    if (!user) {
+      user = await User.create({ name, phoneNumber, address });
+    }
 
-  await premiseRegistration.create({
-    OwnerName,
-    House_no,
-    ColonyName,
-    Landmark,
-    Locality,
-    EmailAgent,
-    MobileAgent,
-    AgentName,
-    RegistrationNeworOld,
-    whetherCommercialorResidential,
-    whetherPrivateorpublic,
-    type,
-    ocAvailable,
-    ocNumber,
-    ocDate,
-    Make,
-    serialNo: JSON.stringify(serialNo),
-    weight: JSON.stringify(weight),
-    proposedDateofcommencement,
-    proposedDateofcompletion,
-    ApprovedbuildingplanDocument,
-    DrawingsofPremise,
-    SafetyCertificate,
-    SignatureofOwner,
-    quantity,
-    personCapacity : JSON.stringify(NoOfPerson)
+    let serialNoValue = [];
+    try {
+      serialNoValue = Array.isArray(serialNo) ? serialNo : JSON.parse(serialNo || '[]');
+    } catch (error) {
+      serialNoValue = [];
+    }
 
-  })
-     res.send(`
+    let weightArray = [];
+    try {
+      const parsedWeight = JSON.parse(weight || '{"weight":[]}');
+      if (Array.isArray(parsedWeight)) {
+        weightArray = parsedWeight.map(Number).filter(value => !Number.isNaN(value));
+      } else if (Array.isArray(parsedWeight.weight)) {
+        weightArray = parsedWeight.weight.map(Number).filter(value => !Number.isNaN(value));
+      }
+    } catch (error) {
+      weightArray = [];
+    }
+
+    const selectedType = String(type || '').trim().toLowerCase();
+    const personCapacityArray = (selectedType === 'lift' || selectedType === 'escalator')
+      ? weightArray.map(value => value / 68)
+      : null;
+
+    await premiseRegistration.create({
+      OwnerName,
+      House_no,
+      ColonyName,
+      Landmark,
+      Locality,
+      EmailAgent,
+      MobileAgent,
+      AgentName,
+      RegistrationNeworOld,
+      whetherCommercialorResidential,
+      whetherPrivateorpublic,
+      type: selectedType || type,
+      ocAvailable: ocAvailable === 'true' || ocAvailable === true,
+      ocNumber: ocNumber || null,
+      ocDate: ocDate || null,
+      Make: Make || null,
+      serialNo: JSON.stringify(serialNoValue),
+      weight: JSON.stringify(weightArray),
+      proposedDateofcommencement: proposedDateofcommencement || null,
+      proposedDateofcompletion: proposedDateofcompletion || null,
+      quantity: quantity ? Number(quantity) : null,
+      personCapacity: personCapacityArray ? JSON.stringify(personCapacityArray) : null,
+      userId: user.id
+    });
+
+    const viewUrl = `${process.env.BASE_URL}/premiseRegistration/view/${phoneNumber}`;
+    const quotationUrl = `${process.env.BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
+
+    await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${address || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${viewUrl}`);
+
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Send Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
+
+    res.send(`
   <!DOCTYPE html>
   <html>
   <head>
@@ -1124,6 +1175,10 @@ app.post('/premiseRegistration', async (req,res)=>{
   </body>
   </html>
 `);
+  } catch (error) {
+    console.error('❌ Error saving premise registration:', error);
+    res.status(500).json({ error: 'Something went wrong while saving premise registration', details: error.message });
+  }
 
   
 })
@@ -1164,6 +1219,25 @@ app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
     }
     
     const premises = user.premiseRegistrations;
+    const parseJsonList = (value) => {
+      if (!value) {
+        return [];
+      }
+
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+        if (parsed && Array.isArray(parsed.weight)) {
+          return parsed.weight;
+        }
+        return [value];
+      } catch (error) {
+        return [value];
+      }
+    };
+
     let htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -1236,6 +1310,10 @@ app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
     `;
     
     premises.forEach((premise, index) => {
+      const serialList = parseJsonList(premise.serialNo);
+      const weightList = parseJsonList(premise.weight);
+      const capacityList = parseJsonList(premise.personCapacity);
+
       htmlContent += `
         <div class="premise-card">
           <h3>Premise Registration #${index + 1}</h3>
@@ -1293,6 +1371,50 @@ app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
               <div class="value">${premise.RegistrationNeworOld || 'N/A'}</div>
             </div>
           </div>
+
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Email Agent</div>
+              <div class="value">${premise.EmailAgent || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Agent Mobile</div>
+              <div class="value">${premise.MobileAgent || 'N/A'}</div>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <div class="label">OC Available</div>
+              <div class="value">${premise.ocAvailable ? 'Yes' : 'No'}</div>
+            </div>
+            <div class="field">
+              <div class="label">OC Number</div>
+              <div class="value">${premise.ocNumber || 'N/A'}</div>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Serial Numbers</div>
+              <div class="value">${serialList.join(', ') || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Weights</div>
+              <div class="value">${weightList.join(', ') || 'N/A'}</div>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Person Capacity</div>
+              <div class="value">${capacityList.join(', ') || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Make</div>
+              <div class="value">${premise.Make || 'N/A'}</div>
+            </div>
+          </div>
           
           <div class="field-row">
             <div class="field">
@@ -1302,6 +1424,18 @@ app.get('/premiseRegistration/view/:phoneNumber', async(req,res)=>{
             <div class="field">
               <div class="label">Proposed End Date</div>
               <div class="value">${premise.proposedDateofcompletion ? new Date(premise.proposedDateofcompletion).toLocaleDateString() : 'N/A'}</div>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field full">
+              <div class="label">Documents</div>
+              <div class="value">
+                <a href="/document/premise/${user.id}/building">Building Plan</a><br />
+                <a href="/document/premise/${user.id}/drawings">Drawings</a><br />
+                <a href="/document/premise/${user.id}/safety">Safety Certificate</a><br />
+                <a href="/document/premise/${user.id}/signature">Owner Signature</a>
+              </div>
             </div>
           </div>
         </div>
@@ -1720,7 +1854,11 @@ app.post('/premiseRegistrationForm', upload.fields([
       quantity
     } = req.body;
 
-    const selectedType = Array.isArray(type) ? type[0] : type;
+    if (!phoneNumber) {
+      return res.status(400).json({ error: 'Missing required field: phoneNumber' });
+    }
+
+    const selectedType = String(Array.isArray(type) ? type[0] : type || '').trim().toLowerCase();
 
     let user = await User.findOne({ where: { phoneNumber } });
     if (!user) {
@@ -1728,27 +1866,26 @@ app.post('/premiseRegistrationForm', upload.fields([
     }
 
     let serialNoValue = [];
-    let weightArray = [];
-
     try {
       serialNoValue = Array.isArray(serialNo) ? serialNo : JSON.parse(serialNo || '[]');
     } catch (error) {
       serialNoValue = [];
     }
 
+    let weightArray = [];
     try {
       const parsedWeight = JSON.parse(weight || '{"weight":[]}');
       if (Array.isArray(parsedWeight)) {
-        weightArray = parsedWeight.map(Number).filter(n => !Number.isNaN(n));
+        weightArray = parsedWeight.map(Number).filter(value => !Number.isNaN(value));
       } else if (Array.isArray(parsedWeight.weight)) {
-        weightArray = parsedWeight.weight.map(Number).filter(n => !Number.isNaN(n));
+        weightArray = parsedWeight.weight.map(Number).filter(value => !Number.isNaN(value));
       }
     } catch (error) {
       weightArray = [];
     }
 
     const personCapacityArray = (selectedType === 'lift' || selectedType === 'escalator')
-      ? weightArray.map(n => n / 68)
+      ? weightArray.map(value => value / 68)
       : null;
 
     const getUploadedDocument = (field) => {
@@ -1774,7 +1911,7 @@ app.post('/premiseRegistrationForm', upload.fields([
       RegistrationNeworOld,
       whetherCommercialorResidential,
       whetherPrivateorpublic,
-      type: selectedType,
+      type: selectedType || type,
       ocAvailable: ocAvailable === 'true' || ocAvailable === true,
       ocNumber: ocNumber || null,
       ocDate: ocDate || null,
@@ -1791,12 +1928,17 @@ app.post('/premiseRegistrationForm', upload.fields([
       SafetyCertificateMimeType: safetyDoc.mimeType,
       SignatureofOwner: signature.data,
       SignatureofOwnerMimeType: signature.mimeType,
-      quantity: Number(quantity) || null,
+      quantity: quantity ? Number(quantity) : null,
       personCapacity: personCapacityArray ? JSON.stringify(personCapacityArray) : null,
       userId: user.id
     });
 
+    const viewUrl = `${process.env.BASE_URL}/premiseRegistration/view/${phoneNumber}`;
+    const quotationUrl = `${process.env.BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
 
+    await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${address || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${viewUrl}`);
+
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Send Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
 
     res.send(`
 <!DOCTYPE html>
@@ -1834,8 +1976,6 @@ app.post('/premiseRegistrationForm', upload.fields([
 </html>
 `);
 
-    normalText(phoneNumber, `Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Registration Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*weight: ${weight || 'N/A'}*\n\n*Person Capacity: ${personCapacity || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}.`);
   } catch (error) {
     console.error('❌ Error creating premise registration form data:', {
       message: error.message,
@@ -2829,7 +2969,7 @@ const sendButton = async (to, text, buttons) => {
   }
 };
 const normalText = async (to, text) =>{
-    axios.post(
+  return axios.post(
         `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
         {
           messaging_product: 'whatsapp',

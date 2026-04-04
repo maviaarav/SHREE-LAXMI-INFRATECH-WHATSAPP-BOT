@@ -67,7 +67,7 @@ const premiseRegistration = sequelize.define('premiseRegistration',{
         allowNull : true,
     },
     serialNo: {
-        type : DataTypes.STRING,
+        type : DataTypes.TEXT,
         allowNull : true,
     },
     weight: {
@@ -119,6 +119,10 @@ const premiseRegistration = sequelize.define('premiseRegistration',{
         allowNull: true
     },
     quantity: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+    },
+    userId: {
         type: DataTypes.INTEGER,
         allowNull: true
     }
