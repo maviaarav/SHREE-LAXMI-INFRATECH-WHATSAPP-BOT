@@ -1128,12 +1128,12 @@ app.post('/premiseRegistration', async (req,res)=>{
       userId: user.id
     });
 
-    const viewUrl = `${process.env.BASE_URL}/premiseRegistration/view/${phoneNumber}`;
-    const quotationUrl = `${process.env.BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
+    const viewUrl = `${APP_BASE_URL}/premiseRegistration/view/${phoneNumber}`;
+    const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
 
     await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${address || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${viewUrl}`);
 
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Send Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
 
     res.send(`
   <!DOCTYPE html>
@@ -1617,6 +1617,23 @@ app.get('/premiseRegistrationForm', async (req, res) => {
       font-family: inherit;
     }
 
+    .copy-btn {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #1e293b;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      width: fit-content;
+    }
+
+    .copy-btn:hover {
+      background: #e2e8f0;
+    }
+
     textarea {
       min-height: 84px;
       resize: vertical;
@@ -1771,6 +1788,42 @@ app.get('/premiseRegistrationForm', async (req, res) => {
 
     let step = 0;
 
+    function attachCopyButtons(scope) {
+      const copyTargets = scope.querySelectorAll('input:not([type="hidden"]):not([type="file"]):not([type="submit"]):not([type="button"]), select, textarea');
+
+      copyTargets.forEach(function (field) {
+        if (field.dataset.copyAttached === 'true') {
+          return;
+        }
+
+        field.dataset.copyAttached = 'true';
+
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'copy-btn';
+        copyButton.textContent = 'Copy Value';
+
+        copyButton.addEventListener('click', async function () {
+          const value = field.value || '';
+
+          try {
+            await navigator.clipboard.writeText(value);
+            const originalText = copyButton.textContent;
+            copyButton.textContent = 'Copied';
+            setTimeout(function () {
+              copyButton.textContent = originalText;
+            }, 1200);
+          } catch (error) {
+            field.focus();
+            field.select?.();
+            document.execCommand('copy');
+          }
+        });
+
+        field.insertAdjacentElement('afterend', copyButton);
+      });
+    }
+
     typeSelect.value = "${type}";
 
     function updateStep() {
@@ -1812,6 +1865,8 @@ app.get('/premiseRegistrationForm', async (req, res) => {
       document.getElementById('serialNoJson').value = JSON.stringify(serialArray);
       document.getElementById('weightJson').value = JSON.stringify({ weight: weightArray });
     });
+
+    attachCopyButtons(form);
 
     updateStep();
   </script>
@@ -1933,12 +1988,12 @@ app.post('/premiseRegistrationForm', upload.fields([
       userId: user.id
     });
 
-    const viewUrl = `${process.env.BASE_URL}/premiseRegistration/view/${phoneNumber}`;
-    const quotationUrl = `${process.env.BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
+    const viewUrl = `${APP_BASE_URL}/premiseRegistration/view/${phoneNumber}`;
+    const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
 
     await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${address || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${viewUrl}`);
 
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Send Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
 
     res.send(`
 <!DOCTYPE html>
@@ -2163,6 +2218,24 @@ app.get('/NoCRegistrationForm',(req,res)=>{
       border: 1px solid #ccc;
     }
 
+    .copy-btn {
+      width: auto;
+      padding: 8px 12px;
+      margin-top: 8px;
+      background: #f8fafc;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+
+    .copy-btn:hover {
+      background: #e2e8f0;
+    }
+
     button {
       width: 100%;
       padding: 12px;
@@ -2272,9 +2345,155 @@ app.get('/renewal/:phoneNumber', async(req,res)=>{
   }
 })
 
+app.get('/renewal/view/:phoneNumber', async (req, res) => {
+  const { phoneNumber } = req.params;
+
+  try {
+    console.log(`Fetching renewal view for phone number: ${phoneNumber}...`);
+
+    const user = await User.findOne({
+      where: { phoneNumber },
+      include: [{ model: RenewalTable }]
+    });
+
+    if (!user || !user.RenewalTables || user.RenewalTables.length === 0) {
+      return res.status(404).send(`<h2>No renewal record found for ${phoneNumber}</h2>`);
+    }
+
+    const parseJsonList = (value) => {
+      if (!value) {
+        return [];
+      }
+
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [value];
+      } catch (error) {
+        return [value];
+      }
+    };
+
+    const renewals = user.RenewalTables;
+    let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Renewal Details</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background: #f4f6f9;
+          padding: 20px;
+        }
+        .container {
+          max-width: 1000px;
+          margin: 0 auto;
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+          color: #667eea;
+          border-bottom: 2px solid #667eea;
+          padding-bottom: 10px;
+        }
+        .record-card {
+          background: #f9f9f9;
+          border-left: 4px solid #667eea;
+          padding: 15px;
+          margin: 15px 0;
+          border-radius: 4px;
+        }
+        .field-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+          margin: 10px 0;
+        }
+        .field {
+          background: white;
+          padding: 10px;
+          border-radius: 4px;
+          border-left: 3px solid #667eea;
+        }
+        .label {
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 5px;
+        }
+        .value {
+          color: #666;
+        }
+        .user-info {
+          background: #e9f3ff;
+          padding: 15px;
+          border-radius: 4px;
+          margin-bottom: 20px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>📋 Renewal Details</h1>
+
+        <div class="user-info">
+          <h3>Customer Information</h3>
+          <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
+          <p><strong>Phone:</strong> ${user.phoneNumber}</p>
+          <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
+        </div>
+    `;
+
+    renewals.forEach((renewal, index) => {
+      const capacityList = parseJsonList(renewal.capacity);
+      const kvaList = parseJsonList(renewal.kva);
+
+      htmlContent += `
+        <div class="record-card">
+          <h3>Renewal #${index + 1}</h3>
+          <div class="field-row">
+            <div class="field">
+              <div class="label">Type</div>
+              <div class="value">${renewal.type || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Quantity</div>
+              <div class="value">${renewal.quantity ?? 'N/A'}</div>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <div class="label">KVA</div>
+              <div class="value">${kvaList.join(', ') || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">Capacity</div>
+              <div class="value">${capacityList.join(', ') || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    htmlContent += `
+      </div>
+    </body>
+    </html>
+    `;
+
+    res.send(htmlContent);
+  } catch (error) {
+    console.error(`❌ Error fetching renewal view for ${phoneNumber}:`, error);
+    res.status(403).send(`<h2>Error: ${error.message}</h2>`);
+  }
+});
+
 app.post('/renewal', async (req,res)=>{
   try{
     const {name, phoneNumber, address, type, capacity, quantity, kva} = req.body;
+    const selectedType = String(type || '').trim();
 
     // Validate all required fields
     if (!name || !name.trim()) {
@@ -2298,7 +2517,7 @@ app.post('/renewal', async (req,res)=>{
       });
     }
 
-    if (!type || !type.toString().trim()) {
+    if (!selectedType) {
       return res.status(400).json({ 
         error: "Invalid input",
         details: "Type is required"
@@ -2323,10 +2542,10 @@ app.post('/renewal', async (req,res)=>{
    
     let kvaValue = null;
     let capacityValue = null;
-    if(type === 'Transformer-Renewal' || type === 'DG-Renewal'){
+    if(selectedType === 'Transformer-Renewal' || selectedType === 'DG-Renewal'){
       kvaValue = Array.isArray(kva) ? kva : (kva ? [kva] : []);
     }
-    if(type === 'Lift-Renewal' || type === 'Escalator-Renewal'){
+    if(selectedType === 'Lift-Renewal' || selectedType === 'Escalator-Renewal'){
       capacityValue = Array.isArray(capacity) ? capacity : (capacity ? [capacity] : []);
     }
 
@@ -2340,12 +2559,16 @@ app.post('/renewal', async (req,res)=>{
 
 
     const renewalTypeDetails = await RenewalTable.create({
-      type,
+      type: selectedType,
       capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
       quantity: quantityValue,
       kva: kvaValue && kvaValue.length > 0 ? JSON.stringify(kvaValue) : null,
       userId: user.id
     })
+
+    const renewalDetailsUrl = `${APP_BASE_URL}/renewal/view/${phoneNumber}`;
+    const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name)}&type=${encodeURIComponent(selectedType)}`;
+
     res.send(`
   <!DOCTYPE html>
   <html>
@@ -2380,14 +2603,16 @@ app.post('/renewal', async (req,res)=>{
     <div class="card">
 
   <h2>Thank you ${name}!</h2>
-  <p>Your ${type} application has been submitted.</p>
+  <p>Your ${selectedType} application has been submitted.</p>
       <p>We will contact you shortly.</p>
     </div>
   </body>
   </html>
 `);
-normalText(phoneNumber, `*Thank you ${name}! Your Premise Registration for *${type}* application has been submitted. \n\n The details are as follows: \n- Type: ${type} \n- Quantity: ${quantity} \n- Address: ${address}\n\n We will contact you shortly. \nOur team will send you the quotation. \n\n note: *If you want to apply for different services or renewal of NOC, reply with "another service".*`);
-normalText(process.env.OWNER_PHONE_NUMBER, `New NOC Renewal Application Received:\n\n*Name: ${name}*\n\n*Phone: +${phoneNumber}*\n\n*Address: ${address}*\n\n*Type: ${type}*\n\n*Quantity: ${quantity}*\n\n*KVA: ${kvaValue || 'N/A'}*\n\n*Capacity: ${capacityValue || 'N/A'}* \n\n*Please review the application and send the quotation on* https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/quotationForm?phoneNumber=${phoneNumber}?name=${name}?type=${type}`);
+
+    await normalText(phoneNumber, `Thank you ${name}! Your Renewal for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${renewalDetailsUrl}`);
+
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Renewal Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\n*View Full Details:*\n${renewalDetailsUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
 
   }catch(error){
     console.error("❌ Error creating renewal data:", {
@@ -2522,6 +2747,42 @@ app.get('/form',(req,res)=>{
   const quantityInput = document.getElementById('quantity');
   const dynamicFields = document.getElementById('dynamicFields');
 
+  function attachCopyButtons(scope) {
+    const copyTargets = scope.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea');
+
+    copyTargets.forEach(function (field) {
+      if (field.dataset.copyAttached === 'true') {
+        return;
+      }
+
+      field.dataset.copyAttached = 'true';
+
+      const copyButton = document.createElement('button');
+      copyButton.type = 'button';
+      copyButton.className = 'copy-btn';
+      copyButton.textContent = 'Copy Value';
+
+      copyButton.addEventListener('click', async function () {
+        const value = field.value || '';
+
+        try {
+          await navigator.clipboard.writeText(value);
+          const originalText = copyButton.textContent;
+          copyButton.textContent = 'Copied';
+          setTimeout(function () {
+            copyButton.textContent = originalText;
+          }, 1200);
+        } catch (error) {
+          field.focus();
+          field.select?.();
+          document.execCommand('copy');
+        }
+      });
+
+      field.insertAdjacentElement('afterend', copyButton);
+    });
+  }
+
   quantityInput.addEventListener('input', function () {
     const qty = parseInt(this.value) || 0;
     dynamicFields.innerHTML = '';
@@ -2540,7 +2801,11 @@ app.get('/form',(req,res)=>{
         \`;
       }
     }
+
+    attachCopyButtons(dynamicFields);
   });
+
+  attachCopyButtons(document.getElementById('form') || document);
 </script>
 
 </body>
@@ -2987,6 +3252,8 @@ const normalText = async (to, text) =>{
         console.error("❌ Error sending text message:", error.response?.data || error.message);
       });
 }
+
+const APP_BASE_URL = process.env.BASE_URL || 'https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com';
 
 app.post('/webhook', async (req, res) => {
   try {
