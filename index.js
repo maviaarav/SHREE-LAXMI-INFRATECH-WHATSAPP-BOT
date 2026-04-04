@@ -3867,7 +3867,7 @@ app.post('/webhook', async (req, res) => {
            if(buttonReply.id === 'accept_quotation'){
           try {
             normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
-            normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/renewal/${from}`)
+            normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/renewal/view/${from}`)
 
             const quotation = await quotationAmount.findOne({
               where: { phoneNumber: from },
