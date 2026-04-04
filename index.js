@@ -593,11 +593,125 @@ app.get('/document/premise/:userId/:documentType', async (req, res) => {
 
 app.get('/renewal', async (req,res)=>{
   try{
-    console.log("Fetching renewal data...");
-    const data = await User.findAll({
+    const { phoneNumber } = req.query;
+
+    if (!phoneNumber) {
+      console.log("Fetching renewal data...");
+      const data = await User.findAll({
+        include: [{ model: RenewalTable }]
+      });
+      return res.json(data);
+    }
+
+    const candidates = buildPhoneCandidates(phoneNumber);
+    const last10 = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+
+    let user = await User.findOne({
+      where: { phoneNumber: { [Op.in]: candidates } },
       include: [{ model: RenewalTable }]
     });
-    res.json(data);
+
+    if (!user && last10) {
+      user = await User.findOne({
+        where: { phoneNumber: { [Op.like]: `%${last10}` } },
+        include: [{ model: RenewalTable }]
+      });
+    }
+
+    if (!user || !user.RenewalTables || user.RenewalTables.length === 0) {
+      return res.status(404).send(`<h2>No renewal record found for ${phoneNumber}</h2>`);
+    }
+
+    const parseJsonList = (value) => {
+      if (!value) return [];
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [value];
+      } catch (error) {
+        return [value];
+      }
+    };
+
+    const renewals = user.RenewalTables;
+    let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Renewal Details</title>
+      <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .record-card { background: #f9f9f9; border-left: 4px solid #667eea; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 10px 0; }
+        .field { background: white; padding: 10px; border-radius: 4px; border-left: 3px solid #667eea; }
+        .label { font-weight: bold; color: #333; margin-bottom: 5px; }
+        .value { color: #666; }
+        .copy-inline { margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; color: #1e293b; font-size: 12px; font-weight: 700; padding: 6px 10px; cursor: pointer; }
+        .user-info { background: #e9f3ff; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>📋 Renewal Details</h1>
+        <div class="user-info">
+          <h3>Customer Information</h3>
+          <p><strong>Name:</strong> ${user.name || 'N/A'}</p>
+          <p><strong>Phone:</strong> ${user.phoneNumber}</p>
+          <p><strong>Address:</strong> ${user.address || 'N/A'}</p>
+        </div>
+    `;
+
+    renewals.forEach((renewal, index) => {
+      const capacityList = parseJsonList(renewal.capacity);
+      const kvaList = parseJsonList(renewal.kva);
+
+      htmlContent += `
+        <div class="record-card">
+          <h3>Renewal #${index + 1}</h3>
+          <div class="field-row">
+            <div class="field"><div class="label">Type</div><div class="value">${renewal.type || 'N/A'}</div></div>
+            <div class="field"><div class="label">Quantity</div><div class="value">${renewal.quantity ?? 'N/A'}</div></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><div class="label">KVA</div><div class="value">${kvaList.join(', ') || 'N/A'}</div></div>
+            <div class="field"><div class="label">Capacity</div><div class="value">${capacityList.join(', ') || 'N/A'}</div></div>
+          </div>
+        </div>
+      `;
+    });
+
+    htmlContent += `
+      </div>
+      <script>
+        document.querySelectorAll('.value').forEach(function (element) {
+          const valueText = (element.textContent || '').trim();
+          if (!valueText || valueText === 'N/A') return;
+
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'copy-inline';
+          copyBtn.textContent = 'Copy';
+
+          copyBtn.addEventListener('click', async function () {
+            try {
+              await navigator.clipboard.writeText(valueText);
+              const original = copyBtn.textContent;
+              copyBtn.textContent = 'Copied';
+              setTimeout(function () { copyBtn.textContent = original; }, 1200);
+            } catch (error) {
+              console.error('Copy failed:', error);
+            }
+          });
+
+          element.insertAdjacentElement('afterend', copyBtn);
+        });
+      </script>
+    </body>
+    </html>
+    `;
+
+    res.send(htmlContent);
   }catch(error){
     console.error("Error fetching renewal data:", error);
     res.status(403).json({ error: "Something went wrong" });
@@ -2567,7 +2681,7 @@ app.post('/renewal', async (req,res)=>{
       userId: user.id
     })
 
-    const renewalDetailsUrl = `${APP_BASE_URL}/renewal/view/${phoneNumber}`;
+    const renewalDetailsUrl = `${APP_BASE_URL}/renewal?phoneNumber=${encodeURIComponent(phoneNumber)}`;
     const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name)}&type=${encodeURIComponent(selectedType)}`;
 
     res.send(`
@@ -2611,7 +2725,7 @@ app.post('/renewal', async (req,res)=>{
   </html>
 `);
 
-    await normalText(phoneNumber, `Thank you ${name}! Your Renewal for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${renewalDetailsUrl}`);
+    await normalText(phoneNumber, `Thank you ${name}! Your Renewal for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.`);
 
     await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Renewal Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\n*View Full Details:*\n${renewalDetailsUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
 
