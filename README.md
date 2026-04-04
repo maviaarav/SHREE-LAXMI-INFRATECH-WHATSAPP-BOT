@@ -11,6 +11,7 @@ A comprehensive WhatsApp bot solution built with Node.js, Express, and Sequelize
 - [Configuration](#configuration)
 - [Project Structure](#project-structure)
 - [API Endpoints](#api-endpoints)
+- [Compliance URLs](#compliance-urls)
 - [Database Models](#database-models)
 - [Usage Guide](#usage-guide)
 - [Troubleshooting](#troubleshooting)
@@ -201,6 +202,19 @@ Webhook verification endpoint
 
 ---
 
+### Compliance Endpoints
+
+#### GET `/terms`
+Terms of Service page (Meta app compliance)
+
+#### GET `/privacy`
+Privacy Policy page (Meta app compliance)
+
+#### GET `/data-deletion`
+Data Deletion Instructions page (Meta app compliance)
+
+---
+
 ### Form Endpoints
 
 #### GET `/quotationForm`
@@ -217,6 +231,16 @@ Premise registration form
 
 #### GET `/renewal`
 Renewal application form
+
+---
+
+## 📋 Compliance URLs
+
+Use these public URLs in Meta App Dashboard:
+
+- Terms of Service: `https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/terms`
+- Privacy Policy: `https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/privacy`
+- Data Deletion Instructions: `https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/data-deletion`
 
 ---
 
