@@ -4062,23 +4062,42 @@ const sendQRCodeToWhatsApp = async (phoneNumber, qrBase64, amount, type) => {
 // ✅ Send List Function
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v25.0';
 
 const sendTypingOn = async (to, messageId) => {
   const inboundMessageId = messageId || recentInboundMessageByPhone.get(String(to));
-  if (!inboundMessageId) {
-    return;
+  try {
+    if (inboundMessageId) {
+      await axios.post(
+        `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          status: 'read',
+          message_id: inboundMessageId,
+          typing_indicator: {
+            type: 'text'
+          }
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      return;
+    }
+  } catch (error) {
+    console.error('⚠️ typing indicator (read+typing) failed:', error.response?.data || error.message);
   }
 
   try {
     await axios.post(
-      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: 'whatsapp',
-        status: 'read',
-        message_id: inboundMessageId,
-        typing_indicator: {
-          type: 'text'
-        }
+        to,
+        type: 'typing_on'
       },
       {
         headers: {
@@ -4087,8 +4106,8 @@ const sendTypingOn = async (to, messageId) => {
         }
       }
     );
-  } catch (error) {
-    console.error('⚠️ typing_on failed:', error.response?.data || error.message);
+  } catch (fallbackError) {
+    console.error('⚠️ typing_on fallback failed:', fallbackError.response?.data || fallbackError.message);
   }
 };
 
@@ -4097,7 +4116,7 @@ const listButton = async (to, text , options) =>{
         await sendTypingOn(to);
     await wait(1200);
         await axios.post(
-            `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+          `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
             {
                 messaging_product: 'whatsapp',
                 to,
@@ -4137,7 +4156,7 @@ const sendButton = async (to, text, buttons) => {
     await sendTypingOn(to);
     await wait(1200);
     await axios.post(
-      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: 'whatsapp',
         to,
@@ -4173,7 +4192,7 @@ const sendActionUrlButton = async (to, text, buttonText, url) => {
     await sendTypingOn(to);
     await wait(1200);
     return await axios.post(
-      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: 'whatsapp',
         to,
@@ -4199,6 +4218,24 @@ const sendActionUrlButton = async (to, text, buttonText, url) => {
     );
   } catch (error) {
     console.error('❌ Error sending CTA URL button message:', error.response?.data || error.message);
+    try {
+      return await axios.post(
+        `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          to,
+          text: { body: `${text}\n\n${url}` }
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    } catch (fallbackError) {
+      console.error('❌ CTA fallback text send failed:', fallbackError.response?.data || fallbackError.message);
+    }
   }
 };
 
@@ -4207,7 +4244,7 @@ const normalText = async (to, text) =>{
     await sendTypingOn(to);
     await wait(1200);
     return await axios.post(
-      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: 'whatsapp',
         to,
@@ -4342,7 +4379,7 @@ app.post('/webhook', async (req, res) => {
     if(buttonReply){
         console.log("Button Reply ID:", buttonReply.id);
         if (buttonReply.id === 'menu_main'){
-            listButton(
+        await listButton(
                 from,
                 `Select a service below to get started 👇\n\nWe’re here to assist you with all your approval and registration needs ⚡🛗.`,
                 [
@@ -4354,7 +4391,7 @@ app.post('/webhook', async (req, res) => {
 
                 ]
                 
-            )
+              );
             
         }
            if(buttonReply.id === 'accept_quotation'){
@@ -4375,7 +4412,7 @@ app.post('/webhook', async (req, res) => {
             
             if (!quotation) {
               console.error("❌ Quotation not found for:", from);
-              normalText(from, "❌ Error: Could not find your quotation. Please try again or contact us.");
+              await normalText(from, "❌ Error: Could not find your quotation. Please try again or contact us.");
               return;
             }
 
@@ -4388,7 +4425,7 @@ app.post('/webhook', async (req, res) => {
               console.log("✅ QR Code generated successfully for order:", quotation.orderNo);
             } catch (qrError) {
               console.error("❌ QR Code generation failed:", qrError);
-              normalText(from, "⚠️ QR code generation failed. Please contact us for payment details.");
+              await normalText(from, "⚠️ QR code generation failed. Please contact us for payment details.");
               return;
             }
 
@@ -4398,7 +4435,7 @@ app.post('/webhook', async (req, res) => {
               console.log("✅ QR Code image sent successfully");
             } catch (imageError) {
               console.error("❌ Failed to send QR Code image:", imageError.response?.data || imageError.message);
-              normalText(from, "⚠️ Could not send QR code image. Please contact us at +918006243900 for payment details.");
+              await normalText(from, "⚠️ Could not send QR code image. Please contact us at +918006243900 for payment details.");
             }
 
             const paymentUploadLink = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
@@ -4407,13 +4444,13 @@ app.post('/webhook', async (req, res) => {
 
           } catch (error) {
             console.error("❌ Error in quotation acceptance:", error);
-            normalText(from, "❌ An error occurred while processing your quotation acceptance. Please try again.");
+            await normalText(from, "❌ An error occurred while processing your quotation acceptance. Please try again.");
           }
 
         }
         if(buttonReply.id === 'quotation_reject'){
-          normalText(from, "Thank you for rejecting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
-          normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Rejected:\n\n*Phone: +${from}*\n\nThe customer has rejected the quotation. Please assign an executive to contact the customer and proceed with the service.`)
+          await normalText(from, "Thank you for rejecting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊");
+          await normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Rejected:\n\n*Phone: +${from}*\n\nThe customer has rejected the quotation. Please assign an executive to contact the customer and proceed with the service.`);
         }
 
         // Handle payment confirmation button
@@ -4469,7 +4506,7 @@ app.post('/webhook', async (req, res) => {
         
         if(listReply.id === 'noc_renewal'){
             
-            listButton(
+          await listButton(
                 from,
                 `Please select the type of NOC renewal you want to apply for:`,
                 [
@@ -4480,36 +4517,44 @@ app.post('/webhook', async (req, res) => {
 
 
                 ]
-            )
+            );
         }
      
         if (listReply.id === 'transformer_renewal'){
-          normalText(
+          const renewalUrl = `${APP_BASE_URL}/form?type=Transformer-Renewal&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for Transformer NOC Renewal, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/form?type=Transformer-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for Transformer NOC Renewal, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Transformer NOC Renewal form.', 'Apply Now', renewalUrl);
         }
         if (listReply.id === 'DG_renewal'){
-          normalText(
+          const renewalUrl = `${APP_BASE_URL}/form?type=DG-Renewal&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for DG NOC Renewal, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/form?type=DG-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for DG NOC Renewal, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open DG NOC Renewal form.', 'Apply Now', renewalUrl);
         }
         if (listReply.id === 'lift_renewal'){
-          normalText(
+          const renewalUrl = `${APP_BASE_URL}/form?type=Lift-Renewal&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for Lift NOC Renewal, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/form?type=Lift-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for Lift NOC Renewal, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Lift NOC Renewal form.', 'Apply Now', renewalUrl);
         }
         if (listReply.id === 'escalator_renewal'){
-          normalText(
+          const renewalUrl = `${APP_BASE_URL}/form?type=Escalator-Renewal&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for Escalator NOC Renewal, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/form?type=Escalator-Renewal&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for Escalator NOC Renewal, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Escalator NOC Renewal form.', 'Apply Now', renewalUrl);
         }
         if(listReply.id === 'noc_registration'){
            
-            listButton(
+            await listButton(
                 from,
                 `Please select the type of NOC registration you want to apply for:`,
                 [
@@ -4520,58 +4565,70 @@ app.post('/webhook', async (req, res) => {
 
 
                 ]
-            )
+            );
         }
         if(listReply.id === 'transformer_registration'){
-          normalText(
+          const registrationUrl = `${APP_BASE_URL}/NoCRegistrationForm?type=Transformer-NOC-Registration&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for Transformer NOC Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/NoCRegistrationForm?type=Transformer-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for Transformer NOC Registration, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Transformer NOC Registration form.', 'Apply Now', registrationUrl);
         }
           if(listReply.id === 'DG_registration'){
-          normalText(
+          const registrationUrl = `${APP_BASE_URL}/NoCRegistrationForm?type=DG-NOC-Registration&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for DG NOC Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/NoCRegistrationForm?type=DG-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for DG NOC Registration, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open DG NOC Registration form.', 'Apply Now', registrationUrl);
         }
          if(listReply.id === 'lift_registration'){
-          normalText(
+          const registrationUrl = `${APP_BASE_URL}/NoCRegistrationForm?type=Lift-NOC-Registration&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for Lift NOC Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/NoCRegistrationForm?type=Lift-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for Lift NOC Registration, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- KVA rating for each lift\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Lift NOC Registration form.', 'Apply Now', registrationUrl);
         }
          if(listReply.id === 'escalator_registration'){
-          normalText(
+          const registrationUrl = `${APP_BASE_URL}/NoCRegistrationForm?type=Escalator-NOC-Registration&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for Escalator NOC Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/NoCRegistrationForm?type=Escalator-NOC-Registration&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for Escalator NOC Registration, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- KVA rating for each escalator\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Escalator NOC Registration form.', 'Apply Now', registrationUrl);
         }
         if(listReply.id === 'premise_registation'){
          
-            listButton(
+            await listButton(
                 from,
                 `Please select the type of * premise registration * you want to apply for:`,
                 [
                     {id : 'lift_PremiseRegistration', title: 'Lift NOC Registration'},
                     {id : 'escalator_PremiseRegistration', title: 'ESC NOC Registration'},
                 ]
-            )
+            );
         }
         if(listReply.id === 'lift_PremiseRegistration'){
-          normalText(
+          const premiseUrl = `${APP_BASE_URL}/premiseRegistrationForm?type=lift&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for Lift Premise Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/premiseRegistrationForm?type=lift&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Lift\n- Serial Number of Lift(s)\n- Weight of Lift(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Lifts\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for Lift Premise Registration, use the button below.\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Lift\n- Serial Number of Lift(s)\n- Weight of Lift(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Lifts\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Lift Premise Registration form.', 'Apply Now', premiseUrl);
         }
          if(listReply.id === 'escalator_PremiseRegistration'){
-          normalText(
+          const premiseUrl = `${APP_BASE_URL}/premiseRegistrationForm?type=escalator&phoneNumber=${from}`;
+          await normalText(
             from,
-            `To apply for Escalator Premise Registration, please fill out the form below:\n\nhttps://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/premiseRegistrationForm?type=escalator&phoneNumber=${from}\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Escalator\n- Serial Number of Escalator(s)\n- Weight of Escalator(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Escalators\n\nOur team will review your application and get back to you shortly. Thank you!`
-          )
+            `To apply for Escalator Premise Registration, use the button below.\n\n*Please ensure you have the following details ready:*\n- Owner Name\n- House No.\n- Colony Name\n- Landmark\n- Locality\n- Email of Agent (if any)\n- Mobile of Agent (if any)\n- Agent Name (if any)\n- Registration Type (New or Old)\n- Whether Private or Public\n- Whether Commercial or Residential\n- OC Available (Yes or No)\n- OC Number (if OC Available)\n- OC Date (if OC Available)\n- Make of Escalator\n- Serial Number of Escalator(s)\n- Weight of Escalator(s)\n- Proposed Date of Commencement\n- Proposed Date of Completion\n- Quantity of Escalators\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Escalator Premise Registration form.', 'Apply Now', premiseUrl);
         }
         if(listReply.id === 'insurance'){
             
-            listButton(
+            await listButton(
                 from,
                 `Please select the type of * insurance * you want to apply for:`,
                 [
@@ -4579,7 +4636,7 @@ app.post('/webhook', async (req, res) => {
                     {id : 'escalator_registration', title: 'Escalator NOC '},
                     {id : 'both-registration-1-2', title: 'For both options'},
                 ]
-            )
+            );
         }
         if(listReply.id === 'upload_payment'){
             const uploadUrl = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
