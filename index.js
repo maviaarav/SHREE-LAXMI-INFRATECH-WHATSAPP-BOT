@@ -4446,8 +4446,7 @@ const sendTypingOn = async (to, messageId) => {
       }
     }
   }
-  // WhatsApp Cloud API does not support a "typing_on" sender action.
-  // Best-effort alternative: mark the inbound message as read.
+  // Typing indicator requires an inbound message id from webhook events.
   if (!inboundMessageId) return;
 
   try {
@@ -4456,7 +4455,10 @@ const sendTypingOn = async (to, messageId) => {
       {
         messaging_product: 'whatsapp',
         status: 'read',
-        message_id: inboundMessageId
+        message_id: inboundMessageId,
+        typing_indicator: {
+          type: 'text'
+        }
       },
       {
         headers: {
@@ -4466,7 +4468,7 @@ const sendTypingOn = async (to, messageId) => {
       }
     );
   } catch (error) {
-    console.error('⚠️ mark-as-read failed:', error.response?.data || error.message);
+    console.error('⚠️ typing indicator failed:', error.response?.data || error.message);
   }
 };
 
