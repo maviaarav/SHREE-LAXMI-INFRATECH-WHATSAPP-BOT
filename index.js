@@ -4397,38 +4397,17 @@ const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v25.0';
 
 const sendTypingOn = async (to, messageId) => {
   const inboundMessageId = messageId || recentInboundMessageByPhone.get(String(to));
-  try {
-    if (inboundMessageId) {
-      await axios.post(
-        `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
-        {
-          messaging_product: 'whatsapp',
-          status: 'read',
-          message_id: inboundMessageId,
-          typing_indicator: {
-            type: 'text'
-          }
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      return;
-    }
-  } catch (error) {
-    console.error('⚠️ typing indicator (read+typing) failed:', error.response?.data || error.message);
-  }
+  // WhatsApp Cloud API does not support a "typing_on" sender action.
+  // Best-effort alternative: mark the inbound message as read.
+  if (!inboundMessageId) return;
 
   try {
     await axios.post(
       `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: 'whatsapp',
-        to,
-        type: 'typing_on'
+        status: 'read',
+        message_id: inboundMessageId
       },
       {
         headers: {
@@ -4437,8 +4416,8 @@ const sendTypingOn = async (to, messageId) => {
         }
       }
     );
-  } catch (fallbackError) {
-    console.error('⚠️ typing_on fallback failed:', fallbackError.response?.data || fallbackError.message);
+  } catch (error) {
+    console.error('⚠️ mark-as-read failed:', error.response?.data || error.message);
   }
 };
 
