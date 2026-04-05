@@ -2,6 +2,10 @@ const {DataTypes} = require('sequelize');
 const { sequelize } = require('../database/db');
 
 const renewalTable = sequelize.define('renewalTable',{
+    expiryDate: {
+        type : DataTypes.DATEONLY,
+        allowNull : true,
+    },
     type: {
         type : DataTypes.STRING,
         allowNull : false,

@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
 dotenv = require('dotenv');
 dotenv.config();
 const { sequelize } = require('./models/relationship');
-const { User, RenewalTable ,nocRegistration,premiseRegistration,quotationAmount, paymentProof } = require('./models/relationship');
+const { User, RenewalTable, insuranceTable, nocRegistration, premiseRegistration, quotationAmount, paymentProof } = require('./models/relationship');
 const multer = require('multer');
 const QRCode = require('qrcode');
 const fs = require('fs')
@@ -686,6 +686,10 @@ app.get('/renewal', async (req,res)=>{
           <div class="field-row">
             <div class="field"><div class="label">Type</div><div class="value">${renewal.type || 'N/A'}</div></div>
             <div class="field"><div class="label">Quantity</div><div class="value">${renewal.quantity ?? 'N/A'}</div></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><div class="label">Expiry Date</div><div class="value">${renewal.expiryDate || 'N/A'}</div></div>
+            <div class="field"><div class="label">-</div><div class="value">-</div></div>
           </div>
           <div class="field-row">
             <div class="field"><div class="label">KVA</div><div class="value">${kvaList.join(', ') || 'N/A'}</div></div>
@@ -2689,17 +2693,9 @@ app.post('/nocRegistration', async (req,res)=>{
       return res.status(400).json({ error: 'Invalid input', details: 'Quantity must be greater than 0' });
     }
 
-    const submittedName = String(name || '').trim();
-    const submittedAddress = String(address || '').trim();
-
     let user = await User.findOne({ where: { phoneNumber } });
     if(!user){
-      user = await User.create({ name: submittedName, phoneNumber, address: submittedAddress });
-    } else {
-      await user.update({
-        name: submittedName || user.name,
-        address: submittedAddress || user.address
-      });
+      user = await User.create({ name, phoneNumber, address });
     }
 
     let kvaValue = null;
@@ -2715,7 +2711,6 @@ app.post('/nocRegistration', async (req,res)=>{
     console.log("Received NOC registration data:", req.body);
 
     await nocRegistration.create({
-      applicantName: submittedName,
       type: selectedType,
       capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
       quantity: quantityValue,
@@ -3216,6 +3211,17 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
 
           <div class="field-row">
             <div class="field">
+              <div class="label">Expiry Date</div>
+              <div class="value">${renewal.expiryDate || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="label">-</div>
+              <div class="value">-</div>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
               <div class="label">KVA</div>
               <div class="value">${kvaList.join(', ') || 'N/A'}</div>
             </div>
@@ -3300,7 +3306,7 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
 
 app.post('/renewal', async (req,res)=>{
   try{
-    const {name, phoneNumber, address, type, capacity, quantity, kva} = req.body;
+    const {name, phoneNumber, address, type, capacity, quantity, kva, expiryDate} = req.body;
     const selectedType = String(type || '').trim();
 
     // Validate all required fields
@@ -3311,6 +3317,477 @@ app.post('/renewal', async (req,res)=>{
       });
     }
 
+
+    app.get('/insurance', async (req, res) => {
+      try {
+        const { phoneNumber } = req.query;
+
+        if (!phoneNumber) {
+          const data = await User.findAll({
+            include: [{ model: insuranceTable }]
+          });
+          return res.json(data);
+        }
+
+        const candidates = buildPhoneCandidates(phoneNumber);
+        const last10 = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+
+        let user = await User.findOne({
+          where: { phoneNumber: { [Op.in]: candidates } },
+          include: [{ model: insuranceTable }]
+        });
+
+        if (!user && last10) {
+          user = await User.findOne({
+            where: { phoneNumber: { [Op.like]: `%${last10}` } },
+            include: [{ model: insuranceTable }]
+          });
+        }
+
+        const insurances = getInsuranceRows(user);
+        if (!user || insurances.length === 0) {
+          return res.status(404).send(`<h2>No insurance record found for ${phoneNumber}</h2>`);
+        }
+
+        const parseJsonList = (value) => {
+          if (!value) return [];
+          try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [value];
+          } catch (error) {
+            return [value];
+          }
+        };
+
+        let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Insurance Details</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #f4f6f9; padding: 20px; }
+            .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+            .record-card { background: #f9f9f9; border-left: 4px solid #667eea; padding: 15px; margin: 15px 0; border-radius: 4px; }
+            .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 10px 0; }
+            .field { background: white; padding: 10px; border-radius: 4px; border-left: 3px solid #667eea; }
+            .label { font-weight: bold; color: #333; margin-bottom: 5px; }
+            .value { color: #666; }
+            .copy-inline { margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; color: #1e293b; font-size: 12px; font-weight: 700; padding: 6px 10px; cursor: pointer; }
+            .user-info { background: #e9f3ff; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>📋 Insurance Details</h1>
+            <div class="user-info">
+              <h3>Customer Information</h3>
+              <p><strong>Name:</strong> <span class="copy-target">${user.name || 'N/A'}</span></p>
+              <p><strong>Phone:</strong> <span class="copy-target">${user.phoneNumber || 'N/A'}</span></p>
+              <p><strong>Address:</strong> <span class="copy-target">${user.address || 'N/A'}</span></p>
+            </div>
+        `;
+
+        insurances.forEach((insurance, index) => {
+          const capacityList = parseJsonList(insurance.capacity);
+          const kvaList = parseJsonList(insurance.kva);
+          const appliedBy = insurance.applicantName || user.name || 'N/A';
+
+          htmlContent += `
+            <div class="record-card">
+              <h3>Insurance #${index + 1}</h3>
+              <div class="field-row">
+                <div class="field"><div class="label">Applied By (Customer Name)</div><div class="value">${appliedBy}</div></div>
+                <div class="field"><div class="label">Expiry Date</div><div class="value">${insurance.expiryDate || 'N/A'}</div></div>
+              </div>
+              <div class="field-row">
+                <div class="field"><div class="label">Type</div><div class="value">${insurance.type || 'N/A'}</div></div>
+                <div class="field"><div class="label">Quantity</div><div class="value">${insurance.quantity ?? 'N/A'}</div></div>
+              </div>
+              <div class="field-row">
+                <div class="field"><div class="label">KVA</div><div class="value">${kvaList.join(', ') || 'N/A'}</div></div>
+                <div class="field"><div class="label">Capacity</div><div class="value">${capacityList.join(', ') || 'N/A'}</div></div>
+              </div>
+            </div>
+          `;
+        });
+
+        htmlContent += `
+          </div>
+          <script>
+            (function () {
+              function copyTextSafe(value) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  return navigator.clipboard.writeText(value);
+                }
+
+                return new Promise(function (resolve, reject) {
+                  try {
+                    const temp = document.createElement('textarea');
+                    temp.value = value;
+                    temp.style.position = 'fixed';
+                    temp.style.left = '-9999px';
+                    document.body.appendChild(temp);
+                    temp.focus();
+                    temp.select();
+                    const ok = document.execCommand('copy');
+                    document.body.removeChild(temp);
+                    if (ok) resolve(); else reject(new Error('copy command failed'));
+                  } catch (err) {
+                    reject(err);
+                  }
+                });
+              }
+
+              const nodes = document.querySelectorAll('.value, .copy-target');
+              Array.prototype.forEach.call(nodes, function (element) {
+                const valueText = (element.textContent || '').trim();
+                if (!valueText || valueText === 'N/A') return;
+
+                const copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'copy-inline';
+                copyBtn.textContent = 'Copy';
+
+                copyBtn.addEventListener('click', function () {
+                  copyTextSafe(valueText)
+                    .then(function () {
+                      const original = copyBtn.textContent;
+                      copyBtn.textContent = 'Copied';
+                      setTimeout(function () { copyBtn.textContent = original; }, 1200);
+                    })
+                    .catch(function (error) {
+                      console.error('Copy failed:', error);
+                    });
+                });
+
+                element.insertAdjacentElement('afterend', copyBtn);
+              });
+            })();
+          </script>
+        </body>
+        </html>
+        `;
+
+        res.send(htmlContent);
+      } catch (error) {
+        console.error('❌ Error fetching insurance data:', error);
+        res.status(403).json({ error: 'Something went wrong', details: error.message });
+      }
+    });
+
+    app.get('/insurance/:phoneNumber', async (req, res) => {
+      const { phoneNumber } = req.params;
+      try {
+        const candidates = buildPhoneCandidates(phoneNumber);
+        const last10 = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+
+        let user = await User.findOne({
+          where: { phoneNumber: { [Op.in]: candidates } },
+          include: [{ model: insuranceTable }]
+        });
+
+        if (!user && last10) {
+          user = await User.findOne({
+            where: { phoneNumber: { [Op.like]: `%${last10}` } },
+            include: [{ model: insuranceTable }]
+          });
+        }
+
+        const insurances = getInsuranceRows(user);
+        if (!user || insurances.length === 0) {
+          return res.status(404).json({ error: 'No insurance record found' });
+        }
+
+        res.json(user);
+      } catch (error) {
+        console.error('❌ Error fetching insurance by phone:', error);
+        res.status(403).json({ error: 'Something went wrong', details: error.message });
+      }
+    });
+
+    app.get('/insurance/view/:phoneNumber', async (req, res) => {
+      const { phoneNumber } = req.params;
+      return res.redirect(`/insurance?phoneNumber=${encodeURIComponent(phoneNumber)}`);
+    });
+
+    app.post('/insurance', async (req, res) => {
+      try {
+        const { name, phoneNumber, address, type, capacity, quantity, kva, expiryDate } = req.body;
+        const selectedType = String(type || '').trim();
+        const submittedName = String(name || '').trim();
+        const submittedAddress = String(address || '').trim();
+
+        if (!submittedName) {
+          return res.status(400).json({ error: 'Invalid input', details: 'Name is required' });
+        }
+        if (!phoneNumber || !String(phoneNumber).trim()) {
+          return res.status(400).json({ error: 'Invalid input', details: 'Phone number is required' });
+        }
+        if (!submittedAddress) {
+          return res.status(400).json({ error: 'Invalid input', details: 'Address is required' });
+        }
+        if (!selectedType) {
+          return res.status(400).json({ error: 'Invalid input', details: 'Type is required' });
+        }
+        if (!expiryDate || !String(expiryDate).trim()) {
+          return res.status(400).json({ error: 'Invalid input', details: 'Expiry date is required' });
+        }
+        if (!quantity || quantity === '' || isNaN(quantity)) {
+          return res.status(400).json({ error: 'Invalid input', details: 'Quantity must be a valid number' });
+        }
+
+        const quantityValue = parseInt(quantity, 10);
+        if (quantityValue <= 0) {
+          return res.status(400).json({ error: 'Invalid input', details: 'Quantity must be greater than 0' });
+        }
+
+        let user = await User.findOne({ where: { phoneNumber } });
+        if (!user) {
+          user = await User.create({ name: submittedName, phoneNumber, address: submittedAddress });
+        } else {
+          await user.update({
+            name: submittedName || user.name,
+            address: submittedAddress || user.address
+          });
+        }
+
+        let kvaValue = null;
+        let capacityValue = null;
+
+        if (selectedType === 'Transformer-Insurance' || selectedType === 'DG-Insurance') {
+          kvaValue = Array.isArray(kva) ? kva : (kva ? [kva] : []);
+        }
+        if (selectedType === 'Lift-Insurance' || selectedType === 'Escalator-Insurance') {
+          capacityValue = Array.isArray(capacity) ? capacity : (capacity ? [capacity] : []);
+        }
+
+        await insuranceTable.create({
+          applicantName: submittedName,
+          type: selectedType,
+          expiryDate,
+          capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
+          quantity: quantityValue,
+          kva: kvaValue && kvaValue.length > 0 ? JSON.stringify(kvaValue) : null,
+          userId: user.id
+        });
+
+        const insuranceDetailsUrl = `${APP_BASE_URL}/insurance?phoneNumber=${encodeURIComponent(phoneNumber)}`;
+        const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${encodeURIComponent(phoneNumber)}&name=${encodeURIComponent(submittedName || '')}&type=${encodeURIComponent(selectedType || '')}`;
+
+        res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Thank You</title>
+        <style>
+          body {
+            font-family: Arial;
+            background: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+          }
+          .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+          }
+          h2 {
+            color: #28a745;
+          }
+          p {
+            margin-top: 10px;
+            color: #555;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2>Thank you ${submittedName}!</h2>
+          <p>Your ${selectedType} application has been submitted.</p>
+          <p>We will contact you shortly.</p>
+        </div>
+      </body>
+      </html>
+    `);
+
+        await normalText(phoneNumber, `Thank you ${submittedName}! Your Insurance for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Expiry Date: ${expiryDate}\n- Address: ${submittedAddress}\n\nWe will contact you shortly. Our team will send you the quotation.`);
+        await sendActionUrlButton(phoneNumber, 'View your submitted insurance details.', 'View Details', insuranceDetailsUrl);
+
+        await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Insurance Application Received*\n\n👤 *Customer:* ${submittedName}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${submittedAddress}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n📅 *Expiry Date:* ${expiryDate}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
+        await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full insurance details for customer +${phoneNumber}.`, 'View Details', insuranceDetailsUrl);
+        await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
+      } catch (error) {
+        console.error('❌ Error creating insurance data:', {
+          message: error.message,
+          code: error.code,
+          stack: error.stack
+        });
+        res.status(403).json({ error: 'Something went wrong', details: error.message });
+      }
+    });
+
+    app.get('/insuranceForm', (req, res) => {
+      const { phoneNumber, type } = req.query;
+      if (!phoneNumber || !type) {
+        return res.status(400).json({ error: 'Missing required query parameters' });
+      }
+
+      res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Insurance Form</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+      <style>
+        body {
+          font-family: Arial;
+          background: #f4f6f9;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          min-height: 100vh;
+          margin: 0;
+          padding: 16px;
+        }
+
+        .container {
+          background: white;
+          padding: 30px;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 460px;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+          margin: 12px 0;
+        }
+
+        h2 {
+          text-align: center;
+          margin-bottom: 15px;
+        }
+
+        .type-box {
+          background: #e9f3ff;
+          padding: 10px;
+          border-radius: 6px;
+          text-align: center;
+          margin-bottom: 15px;
+          font-weight: bold;
+          color: #007bff;
+        }
+
+        label {
+          display: block;
+          margin-top: 12px;
+          font-weight: bold;
+        }
+
+        input {
+          width: 100%;
+          padding: 10px;
+          margin-top: 5px;
+          border-radius: 6px;
+          border: 1px solid #ccc;
+        }
+
+        button {
+          width: 100%;
+          padding: 12px;
+          margin-top: 20px;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 16px;
+          cursor: pointer;
+        }
+
+        button:hover {
+          background: #0056b3;
+        }
+
+        @media (max-width: 600px) {
+          body {
+            padding: 10px;
+          }
+
+          .container {
+            padding: 18px;
+            border-radius: 10px;
+          }
+
+          h2 {
+            font-size: 22px;
+          }
+
+          input, button {
+            font-size: 16px;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h2>Insurance Form</h2>
+
+        <div class="type-box">
+          Type: ${type.toUpperCase()}
+        </div>
+
+        <form method="POST" action="/insurance">
+          <input type="hidden" name="type" value="${type}" />
+          <input type="hidden" name="phoneNumber" value="${phoneNumber}" />
+
+          <label>Name</label>
+          <input type="text" name="name" required />
+
+          <label>Address</label>
+          <input type="text" name="address" required />
+
+          <label>Expiry Date</label>
+          <input type="date" name="expiryDate" required />
+
+          <label>Quantity</label>
+          <input type="number" id="quantity" name="quantity" required />
+
+          <div id="dynamicFields"></div>
+
+          <button type="submit">Submit Application</button>
+        </form>
+      </div>
+
+      <script>
+        const type = "${type}";
+        const quantityInput = document.getElementById('quantity');
+        const dynamicFields = document.getElementById('dynamicFields');
+
+        quantityInput.addEventListener('input', function () {
+          const qty = parseInt(this.value) || 0;
+          dynamicFields.innerHTML = '';
+
+          for (let i = 1; i <= qty; i++) {
+            if (type === 'Transformer-Insurance' || type === 'DG-Insurance') {
+              dynamicFields.innerHTML += \`
+                <label>KVA for Unit \${i}</label>
+                <input type="number" name="kva[]" required />
+              \`;
+            } else if (type === 'Lift-Insurance' || type === 'Escalator-Insurance') {
+              dynamicFields.innerHTML += \`
+                <label>Capacity for Unit \${i}</label>
+                <input type="number" name="capacity[]" required />
+              \`;
+            }
+          }
+        });
+      </script>
+    </body>
+    </html>
+    `);
+    });
     if (!phoneNumber || !phoneNumber.toString().trim()) {
       return res.status(400).json({ 
         error: "Invalid input",
@@ -3329,6 +3806,13 @@ app.post('/renewal', async (req,res)=>{
       return res.status(400).json({ 
         error: "Invalid input",
         details: "Type is required"
+      });
+    }
+
+    if (!expiryDate || !String(expiryDate).trim()) {
+      return res.status(400).json({
+        error: "Invalid input",
+        details: "Expiry date is required"
       });
     }
 
@@ -3368,6 +3852,7 @@ app.post('/renewal', async (req,res)=>{
 
     const renewalTypeDetails = await RenewalTable.create({
       type: selectedType,
+      expiryDate,
       capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
       quantity: quantityValue,
       kva: kvaValue && kvaValue.length > 0 ? JSON.stringify(kvaValue) : null,
@@ -3418,10 +3903,10 @@ app.post('/renewal', async (req,res)=>{
   </html>
 `);
 
-    await normalText(phoneNumber, `Thank you ${name}! Your Renewal for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.`);
+    await normalText(phoneNumber, `Thank you ${name}! Your Renewal for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Expiry Date: ${expiryDate}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.`);
     await sendActionUrlButton(phoneNumber, 'View your submitted renewal details.', 'View Details', renewalDetailsUrl);
 
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Renewal Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Renewal Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n📅 *Expiry Date:* ${expiryDate}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', renewalDetailsUrl);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
 
@@ -3564,6 +4049,9 @@ app.get('/form',(req,res)=>{
 
       <label>Address</label>
       <input type="text" name="address" required />
+
+      <label>Expiry Date</label>
+      <input type="date" name="expiryDate" required />
 
       <label>Quantity</label>
       <input type="number" id="quantity" name="quantity" required />
@@ -4319,6 +4807,16 @@ const getRenewalRows = (user) => {
   return Array.isArray(rows) ? rows : [];
 };
 
+const getInsuranceRows = (user) => {
+  if (!user) {
+    return [];
+  }
+
+  const plainUser = typeof user.toJSON === 'function' ? user.toJSON() : user;
+  const rows = plainUser.insuranceTables || plainUser.InsuranceTables || user.insuranceTables || user.InsuranceTables || [];
+  return Array.isArray(rows) ? rows : [];
+};
+
 app.post('/webhook', async (req, res) => {
   try {
     const value = req.body?.entry?.[0]?.changes?.[0]?.value;
@@ -4480,6 +4978,7 @@ app.post('/webhook', async (req, res) => {
               process.env.OWNER_PHONE_NUMBER,
               `✅ **Payment Confirmed**\n\n*Customer:* +${payment.phoneNumber}\n*Order:* ${payment.orderNo}\n*Amount:* ₹${payment.amount}\n\nConfirmation message sent to customer.`
             );
+            
             
             // Send success message to customer
             await normalText(
@@ -4646,11 +5145,44 @@ app.post('/webhook', async (req, res) => {
                 from,
                 `Please select the type of * insurance * you want to apply for:`,
                 [
-                    {id : 'lift_registration', title: 'Lift NOC Registration'},
-                    {id : 'escalator_registration', title: 'Escalator NOC '},
-                    {id : 'both-registration-1-2', title: 'For both options'},
+                    {id : 'transformer_insurance', title: 'Transformer Insurance'},
+                    {id : 'dg_insurance', title: 'DG Insurance'},
+                    {id : 'lift_insurance', title: 'Lift Insurance'},
+                    {id : 'escalator_insurance', title: 'Escalator Insurance'},
                 ]
             );
+        }
+        if(listReply.id === 'transformer_insurance'){
+          const insuranceUrl = `${APP_BASE_URL}/insuranceForm?type=Transformer-Insurance&phoneNumber=${from}`;
+          await normalText(
+            from,
+            `To apply for Transformer Insurance, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of transformers\n- KVA rating for each transformer\n- Insurance expiry date\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Transformer Insurance form.', 'Apply Now', insuranceUrl);
+        }
+        if(listReply.id === 'dg_insurance'){
+          const insuranceUrl = `${APP_BASE_URL}/insuranceForm?type=DG-Insurance&phoneNumber=${from}`;
+          await normalText(
+            from,
+            `To apply for DG Insurance, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of DG sets\n- KVA rating for each DG set\n- Insurance expiry date\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open DG Insurance form.', 'Apply Now', insuranceUrl);
+        }
+        if(listReply.id === 'lift_insurance'){
+          const insuranceUrl = `${APP_BASE_URL}/insuranceForm?type=Lift-Insurance&phoneNumber=${from}`;
+          await normalText(
+            from,
+            `To apply for Lift Insurance, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of lifts\n- Capacity for each lift\n- Insurance expiry date\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Lift Insurance form.', 'Apply Now', insuranceUrl);
+        }
+        if(listReply.id === 'escalator_insurance'){
+          const insuranceUrl = `${APP_BASE_URL}/insuranceForm?type=Escalator-Insurance&phoneNumber=${from}`;
+          await normalText(
+            from,
+            `To apply for Escalator Insurance, use the button below.\n\n*Please ensure you have the following details ready:*\n- Quantity of escalators\n- Capacity for each escalator\n- Insurance expiry date\n\nOur team will review your application and get back to you shortly. Thank you!`
+          );
+          await sendActionUrlButton(from, 'Open Escalator Insurance form.', 'Apply Now', insuranceUrl);
         }
         if(listReply.id === 'upload_payment'){
             const uploadUrl = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
