@@ -4776,7 +4776,7 @@ app.post('/webhook', async (req, res) => {
               console.log("✅ QR Code image sent successfully");
             } catch (imageError) {
               console.error("❌ Failed to send QR Code image:", imageError.response?.data || imageError.message);
-              await normalText(from, "⚠️ Could not send QR code image. Please contact us at +918006243900 for payment details.");
+              await normalText(from, "⚠️ Could not send QR code image. Please contact us at +91 9911940454 for payment details.");
             }
 
             const paymentUploadLink = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
