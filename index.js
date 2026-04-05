@@ -381,8 +381,7 @@ app.post('/payment/upload', paymentUpload.single('screenshot'), async (req, res)
 
     // Send screenshot image to owner
     const screenshotUrl = `${process.env.BASE_URL}/payment/screenshot/${proof.id}`;
-    await sendTypingOn(process.env.OWNER_PHONE_NUMBER);
-    await wait(1200);
+    await simulateTyping(process.env.OWNER_PHONE_NUMBER);
     await axios.post(
       `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
       {
@@ -1118,8 +1117,7 @@ app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
 
     const documentUrl = `${process.env.BASE_URL}/document/quotation/${phoneNumber}/${orderNo}`;
 
-    await sendTypingOn(phoneNumber);
-    await wait(1200);
+    await simulateTyping(phoneNumber);
     await axios.post(
       `https://graph.facebook.com/v22.0/${process.env.PHONE_NUMBER_ID}/messages`,
       {
@@ -4382,8 +4380,7 @@ const sendQRCodeToWhatsApp = async (phoneNumber, qrBase64, amount, type) => {
     console.log("✅ Media uploaded, ID:", mediaId);
 
     // Step 4: Send image using media ID
-    await sendTypingOn(phoneNumber);
-    await wait(1200);
+    await simulateTyping(phoneNumber);
     await axios.post(
       `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
       {
@@ -4415,6 +4412,15 @@ const sendQRCodeToWhatsApp = async (phoneNumber, qrBase64, amount, type) => {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v25.0';
+const TYPING_DELAY_MS = Number.parseInt(process.env.TYPING_DELAY_MS || '2500', 10);
+
+const simulateTyping = async (to, messageId, delayMs = TYPING_DELAY_MS) => {
+  await sendTypingOn(to, messageId);
+  const safeDelay = Number.isFinite(delayMs) && delayMs >= 0 ? delayMs : 0;
+  if (safeDelay) {
+    await wait(safeDelay);
+  }
+};
 
 const sendTypingOn = async (to, messageId) => {
   let inboundMessageId = messageId;
@@ -4466,8 +4472,7 @@ const sendTypingOn = async (to, messageId) => {
 
 const listButton = async (to, text , options) =>{
     try{
-        await sendTypingOn(to);
-    await wait(1200);
+    await simulateTyping(to);
         await axios.post(
           `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
             {
@@ -4506,8 +4511,7 @@ const listButton = async (to, text , options) =>{
 // ✅ Send Button Function
 const sendButton = async (to, text, buttons) => {
   try {
-    await sendTypingOn(to);
-    await wait(1200);
+    await simulateTyping(to);
     await axios.post(
       `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
       {
@@ -4542,8 +4546,7 @@ const sendButton = async (to, text, buttons) => {
 
 const sendActionUrlButton = async (to, text, buttonText, url) => {
   try {
-    await sendTypingOn(to);
-    await wait(1200);
+    await simulateTyping(to);
     return await axios.post(
       `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
       {
@@ -4594,8 +4597,7 @@ const sendActionUrlButton = async (to, text, buttonText, url) => {
 
 const normalText = async (to, text) =>{
   try {
-    await sendTypingOn(to);
-    await wait(1200);
+    await simulateTyping(to);
     return await axios.post(
       `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`,
       {
