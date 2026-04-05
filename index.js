@@ -2548,10 +2548,15 @@ app.get('/nocRegistration/view/:phoneNumber', async(req,res)=>{
     nocs.forEach((noc, index) => {
       const kvaList = parseJsonList(noc.kva);
       const capacityList = parseJsonList(noc.capacity);
+      const appliedBy = noc.applicantName || user.name || 'N/A';
 
       htmlContent += `
         <div class="record-card">
           <h3>NOC Registration #${index + 1}</h3>
+          <div class="field-row">
+            <div class="field"><div class="label">Applied By (Customer Name)</div><div class="value">${appliedBy}</div></div>
+            <div class="field"><div class="label">Customer Phone</div><div class="value">${user.phoneNumber || 'N/A'}</div></div>
+          </div>
           <div class="field-row">
             <div class="field"><div class="label">Type</div><div class="value">${noc.type || 'N/A'}</div></div>
             <div class="field"><div class="label">Quantity</div><div class="value">${noc.quantity ?? 'N/A'}</div></div>
@@ -2684,9 +2689,17 @@ app.post('/nocRegistration', async (req,res)=>{
       return res.status(400).json({ error: 'Invalid input', details: 'Quantity must be greater than 0' });
     }
 
+    const submittedName = String(name || '').trim();
+    const submittedAddress = String(address || '').trim();
+
     let user = await User.findOne({ where: { phoneNumber } });
     if(!user){
-      user = await User.create({ name, phoneNumber, address });
+      user = await User.create({ name: submittedName, phoneNumber, address: submittedAddress });
+    } else {
+      await user.update({
+        name: submittedName || user.name,
+        address: submittedAddress || user.address
+      });
     }
 
     let kvaValue = null;
@@ -2702,6 +2715,7 @@ app.post('/nocRegistration', async (req,res)=>{
     console.log("Received NOC registration data:", req.body);
 
     await nocRegistration.create({
+      applicantName: submittedName,
       type: selectedType,
       capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
       quantity: quantityValue,
