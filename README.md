@@ -1,563 +1,240 @@
 # Shree Laxmi Infratech WhatsApp Bot
 
-A comprehensive WhatsApp bot solution built with Node.js, Express, and Sequelize that automates business workflows including NOC registration, premise registration, quotation management, and payment verification for Shree Laxmi Infratech.
+Production-ready WhatsApp automation for Shree Laxmi Infratech, built with Node.js + Express + Sequelize. It handles NOC registration, renewals, premise registration, insurance applications, quotation upload/approval flows, and payment proof verification.
 
-## 📋 Table of Contents
+## Contents
 
 - [Overview](#overview)
+- [Architecture Diagram](#architecture-diagram)
 - [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [Key Routes](#key-routes)
 - [Project Structure](#project-structure)
-- [API Endpoints](#api-endpoints)
 - [Compliance URLs](#compliance-urls)
-- [Database Models](#database-models)
-- [Usage Guide](#usage-guide)
 - [Troubleshooting](#troubleshooting)
-- [Support](#support)
 
----
+## Overview
 
-## 🎯 Overview
+This service exposes:
 
-This WhatsApp Bot is designed to streamline the business operations of Shree Laxmi Infratech by:
-- Automating customer inquiries and registrations
-- Managing NOC (No Objection Certificate) applications and renewals
-- Processing premise registrations
-- Handling quotation generation and acceptance/rejection
-- Managing payment verification with UPI QR codes
-- Maintaining customer and application records in a SQLite database
+- A Meta/WhatsApp webhook (`/webhook`) to receive customer messages.
+- Web forms (Express-rendered HTML) for customer submissions and owner actions.
+- Sequelize models storing customer/application data and uploaded files (PDFs, screenshots, premise documents) in DB BLOB fields.
 
----
+## Architecture Diagram
 
-## ✨ Features
+```mermaid
+flowchart LR
+  WA[WhatsApp Cloud API]:::whatsapp
+  WH[Webhook\nGET/POST /webhook]:::webhook
+  SVR[Node.js + Express\nindex.js]:::server
 
-### 1. **NOC Registration & Renewal**
-   - Automated NOC application submission
-   - Support for new registrations and renewals
-   - Quotation generation based on application type
-   - Document upload and storage
+  subgraph Web[Web UI (Forms & Views)]
+    P1[/quotationForm\n(quotation upload)/]:::pages
+    P2[/NoCRegistrationForm\n(NOC apply)/]:::pages
+    P3[/form\n(renewal apply)/]:::pages
+    P4[/premiseRegistrationForm\n(premise docs)/]:::pages
+    P5[/insuranceForm\n(insurance apply)/]:::pages
+    P6[/paymentUploadForm\n(payment proof)/]:::pages
+  end
 
-### 2. **Premise Registration**
-   - Multi-step property registration form
-   - Owner and agent information collection
-   - Document submission (building plans, safety certificates, signatures)
-   - Automated notifications to owner
+  DB[(Sequelize DB\nSQLite (default) or PostgreSQL)]:::db
+  FILES[(DB BLOB Storage\nQuotation PDF • Payment Proof\nPremise Docs)]:::files
+  QR[UPI QR Generation\n(in-memory)]:::qr
 
-### 3. **Quotation Management**
-   - Dynamic quotation form with PDF upload
-   - Order number and amount tracking
-   - Customer acceptance/rejection workflow
-   - Executive assignment notifications
+  CUST[Customer WhatsApp]:::customer
+  OWNER[Owner WhatsApp]:::owner
 
-### 4. **Payment Verification**
-   - UPI QR code generation for payments
-   - Screenshot submission and verification
-   - Owner payment confirmation/rejection
-   - Automated customer notifications
+  WA -->|Webhook events| WH --> SVR
+  SVR -->|Read/Write| DB
+  SVR -->|Stores/Serves| FILES
+  SVR --> QR --> WA
+  SVR -->|Interactive messages\n(list/buttons/CTA URLs)| WA
 
-### 5. **Customer Management**
-   - User registration and profile management
-   - Application history tracking
-   - Payment proof storage
-   - Document management
-   - Chat-like typing indicator before bot responses
+  P1 <--> SVR
+  P2 <--> SVR
+  P3 <--> SVR
+  P4 <--> SVR
+  P5 <--> SVR
+  P6 <--> SVR
 
-### 6. **Admin Features**
-   - Owner notifications on all applications
-   - Application review and action
-   - Payment confirmation interface
-   - Database management
+  WA --> CUST
+  WA --> OWNER
 
----
-
-## 📦 Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Node.js** (v14 or higher)
-- **npm** (v6 or higher)
-- **Git**
-- **WhatsApp Business API Access**
-  - WhatsApp Business Account
-  - Phone Number ID
-  - Access Token
-- **ngrok** (for local testing with WhatsApp webhooks)
-
----
-
-## 🚀 Installation
-
-### Step 1: Clone the Repository
-
-```bash
-git clone https://github.com/maviaarav/SHREE-LAXMI-INFRATECH-WHATSAPP-BOT.git
-cd SHREE-LAXMI-INFRATECH-WHATSAPP-BOT
+  classDef whatsapp fill:#25D366,stroke:#0B6E3A,color:#ffffff;
+  classDef webhook fill:#F59E0B,stroke:#92400E,color:#111827;
+  classDef server fill:#3B82F6,stroke:#1E3A8A,color:#ffffff;
+  classDef db fill:#8B5CF6,stroke:#4C1D95,color:#ffffff;
+  classDef pages fill:#EC4899,stroke:#9D174D,color:#ffffff;
+  classDef files fill:#10B981,stroke:#065F46,color:#ffffff;
+  classDef qr fill:#06B6D4,stroke:#0E7490,color:#ffffff;
+  classDef owner fill:#111827,stroke:#111827,color:#ffffff;
+  classDef customer fill:#F3F4F6,stroke:#9CA3AF,color:#111827;
 ```
 
-### Step 2: Install Dependencies
+## Features
+
+- WhatsApp menu + interactive flows (list, buttons, CTA URL).
+- NOC registration + view pages.
+- Renewal applications.
+- Premise registration (with document uploads).
+- Insurance applications.
+- Quotation upload (PDF stored in DB) + customer/owner notifications.
+- Payment flow: UPI QR (generated in-memory) + payment screenshot upload + owner confirm/reject.
+- Compliance pages for Meta app review: Terms, Privacy, Data deletion instructions.
+
+## Tech Stack
+
+- Node.js, Express
+- Sequelize (SQLite by default; PostgreSQL supported)
+- Multer (memory storage for uploads)
+- Axios (Meta Graph API)
+- QR generation: `qrcode`
+
+## Quick Start
 
 ```bash
 npm install
+npm run dev
 ```
 
-### Step 3: Create `.env` File
+Server listens on `http://localhost:3000`.
 
-Create a `.env` file in the root directory:
+## Environment Variables
+
+Create a `.env` file in the project root:
 
 ```env
-WHATSAPP_TOKEN=your_whatsapp_api_token_here
-PHONE_NUMBER_ID=your_phone_number_id_here
-BASE_URL=https://your-ngrok-url.ngrok-free.app
-UPI_ID=your_upi_id@ybl
+# WhatsApp / Meta
+WHATSAPP_TOKEN=...
+PHONE_NUMBER_ID=...
+VERIFY_TOKEN=...
+WHATSAPP_API_VERSION=v25.0
+
+# Public base URL of this service (Render / ngrok)
+BASE_URL=https://your-public-domain
+
+# Payments
+UPI_ID=yourupi@bank
+
+# Owner/admin number (no +, digits only)
 OWNER_PHONE_NUMBER=918006243900
+
+# Database
+# Default is SQLite (in-memory unless configured).
+# Persistent SQLite (local):
+# DATABASE_DIALECT=sqlite
+# DATABASE_URL=sqlite:database.sqlite
+#
+# PostgreSQL (production):
+# DATABASE_DIALECT=postgres
+# DATABASE_URL=postgres://user:pass@host:5432/dbname
+
+NODE_ENV=development
 ```
 
-### Step 4: Create Required Directories
+## Key Routes
 
-```bash
-mkdir -p uploads payments
-```
+### Health
 
-### Step 5: Start the Server
+- `GET /` → basic "server running" response
+- `GET /health` → database connectivity check
 
-```bash
-node index.js
-```
+### WhatsApp Webhook (Meta)
 
-The server will run on `http://localhost:3000`
+- `GET /webhook` → verification (uses `VERIFY_TOKEN`)
+- `POST /webhook` → receives WhatsApp messages
 
----
+### Forms & Views
 
-## ⚙️ Configuration
+- `GET /quotationForm?phoneNumber=...&name=...&type=...`
+- `GET /NoCRegistrationForm?phoneNumber=...&type=...`
+- `GET /form?phoneNumber=...&type=...` (renewals)
+- `GET /premiseRegistrationForm?phoneNumber=...&type=...`
+- `GET /insuranceForm?phoneNumber=...&type=...`
+- `GET /paymentUploadForm?phoneNumber=...&orderNo=...&amount=...&type=...`
 
-### WhatsApp API Setup
+### Submissions / Actions
 
-1. **Get Your WhatsApp Credentials:**
-   - Go to [Meta Business Platform](https://business.facebook.com)
-   - Create/configure your WhatsApp Business App
-   - Generate an API token with `whatsapp_business_messaging` permission
-   - Note your Phone Number ID
+- `POST /nocRegistration`
+- `POST /renewal`
+- `POST /premiseRegistrationForm` (multipart)
+- `POST /insurance`
+- `POST /quotationAmount` (multipart PDF)
+- `POST /payment/upload` (multipart screenshot)
+- `POST /payment/confirm/:paymentId`
+- `POST /payment/reject/:paymentId`
 
-2. **Set Webhook URL:**
-   - Use ngrok to create a public URL: `ngrok http 3000`
-   - In your WhatsApp app settings, set webhook URL to: `https://your-ngrok-url/webhooks`
-   - Verify Token: `my_verify_token`
+### Documents
 
-3. **Configure `.env` Variables:**
-   ```env
-   WHATSAPP_TOKEN=EAAUkTHwFiJQBRD...  # Full API token
-   PHONE_NUMBER_ID=1096312766897010     # Your Phone Number ID
-   BASE_URL=https://abcd-1234-xyz.ngrok-free.app  # ngrok URL
-   UPI_ID=8006243900@ybl                # Your UPI ID
-   OWNER_PHONE_NUMBER=918006243900      # Owner's WhatsApp number
-   ```
+- `GET /document/quotation/:phoneNumber/:orderNo` → serves quotation PDF (from DB)
+- `GET /payment/screenshot/:paymentId` → serves payment screenshot (from DB)
 
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-SHREE-LAXMI-INFRATECH-WHATSAPP-BOT/
-├── index.js                 # Main application file
-├── package.json            # Project dependencies
-├── .env                    # Environment variables (not in git)
-├── .gitignore             # Git ignore file
-├── README.md              # This file
-│
+.
+├── index.js
+├── package.json
+├── README.md
 ├── database/
-│   └── db.js              # Database connection setup
-│
+│   └── db.js
 ├── models/
-│   ├── User.js            # User model
-│   ├── nocRegistration.js # NOC registration model
-│   ├── premiseRegistration.js # Premise registration model
-│   ├── quotationAmount.js # Quotation model
-│   ├── paymentProof.js    # Payment proof model
-│   ├── renewalTable.js    # Renewal tracking model
-│   └── relationship.js    # Model associations and exports
-│
-├── uploads/               # User-uploaded files (PDFs, documents)
-├── payments/              # Generated UPI QR codes
-│
-└── [Other files and configurations]
+│   ├── User.js
+│   ├── insuranceTable.js
+│   ├── nocRegistration.js
+│   ├── paymentProof.js
+│   ├── premiseRegistration.js
+│   ├── quotationAmount.js
+│   ├── relationship.js
+│   └── renewalTable.js
+└── uploads/   # created at runtime (legacy static mount; current uploads stored in DB)
 ```
 
----
+## Compliance URLs
 
-## 🔌 API Endpoints
-
-### Webhook Endpoints
-
-#### POST `/webhooks`
-Receives incoming WhatsApp messages
-```bash
-curl -X POST http://localhost:3000/webhooks \
-  -H "Content-Type: application/json" \
-  -d '{...}'
-```
-
-#### GET `/webhooks`
-Webhook verification endpoint
-
----
-
-### Compliance Endpoints
-
-#### GET `/terms`
-Terms of Service page (Meta app compliance)
-
-#### GET `/privacy`
-Privacy Policy page (Meta app compliance)
-
-#### GET `/data-deletion`
-Data Deletion Instructions page (Meta app compliance)
-
----
-
-### Form Endpoints
-
-#### GET `/quotationForm`
-Quotation submission form
-```
-http://localhost:3000/quotationForm?phoneNumber=919876543210&name=John&type=NOC
-```
-
-#### GET `/nocRegistration`
-NOC registration form
-
-#### GET `/premiseRegistration`
-Premise registration form
-
-#### GET `/renewal`
-Renewal application form
-
----
-
-## 📋 Compliance URLs
-
-Use these public URLs in Meta App Dashboard:
+Use these (or your deployed domain equivalents) in the Meta App Dashboard:
 
 - Terms of Service: `https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/terms`
 - Privacy Policy: `https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/privacy`
 - Data Deletion Instructions: `https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/data-deletion`
 
----
+## Troubleshooting
 
-### Document Endpoints
+- Webhook verification fails
+  - Ensure Meta webhook URL points to `https://<BASE_URL>/webhook` and `VERIFY_TOKEN` matches.
+- Messages not sending
+  - Confirm `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`, and `WHATSAPP_API_VERSION` (default `v25.0`).
+- DB connection issues
+  - Default: SQLite `sqlite::memory:` (data resets on restart).
+  - Persistent local SQLite: set `DATABASE_DIALECT=sqlite` and `DATABASE_URL=sqlite:database.sqlite`.
+  - PostgreSQL: set `DATABASE_DIALECT=postgres` and `DATABASE_URL`.
 
-#### GET `/document/quotation/:phoneNumber/:orderNo`
-Download quotation PDF
-
-#### GET `/payment/screenshot/:id`
-View payment screenshot
-
----
-
-### Form Submission Endpoints
-
-#### POST `/quotationAmount`
-Submit quotation form
-
-#### POST `/nocRegistrationData`
-Submit NOC registration
-
-#### POST `/premiseRegistrationData`
-Submit premise registration
-
-#### POST `/paymentScreenshot`
-Upload payment screenshot
-
----
-
-## 🗄️ Database Models
-
-### User Model
-```javascript
-- id (PK)
-- phoneNumber (Unique)
-- name
-- email
-- createdAt
-- updatedAt
-```
-
-### NOC Registration Model
-```javascript
-- id (PK)
-- phoneNumber (FK)
-- name
-- type
-- quantity
-- kvaValue
-- capacityValue
-- status
-- timestamps
-```
-
-### Premise Registration Model
-```javascript
-- id (PK)
-- phoneNumber (FK)
-- name
-- address
-- OwnerName
-- documents (multiple)
-- timestamps
-```
-
-### Quotation Model
-```javascript
-- id (PK)
-- phoneNumber (FK)
-- orderNo
-- amount
-- pdfData
-- status ('pending', 'accepted', 'rejected')
-- timestamps
-```
-
-### Payment Proof Model
-```javascript
-- id (PK)
-- phoneNumber (FK)
-- orderNo
-- amount
-- screenshotData
-- status ('pending', 'confirmed', 'rejected')
-- timestamps
-```
-
----
-
-## 💬 Usage Guide
-
-### For Customers
-
-1. **Starting a Conversation:**
-   - Message your WhatsApp bot
-   - Choose from available options (NOC Registration, Premise Registration, etc.)
-
-2. **NOC Registration:**
-   - Fill out application form with property details
-   - Receive quotation via WhatsApp
-   - Accept or reject quotation
-   - Executive will contact you
-
-3. **Payment:**
-   - Receive UPI QR code for payment
-   - Complete payment
-   - Upload payment screenshot
-   - Owner verifies and confirms
-
-4. **Tracking:**
-   - Receive real-time updates on your application
-   - View quotation history
-   - Check payment status
-
-### For Admin/Owner
-
-1. **Receiving Notifications:**
-   - Get instant notifications on new applications
-   - Payment verification requests
-   - Quotation acceptance/rejection alerts
-
-2. **Managing Applications:**
-   - Review customer submissions
-   - Approve/reject quotations
-   - Verify payments
-   - Assign executives
-
-3. **Responding to Customers:**
-   - Send quotations via WhatsApp links
-   - Confirm/reject payments
-   - Send service confirmations
-
----
-
-## 🛠️ Development
-
-### Running in Development Mode
+## Development
 
 ```bash
-# Install nodemon for auto-reload
-npm install --save-dev nodemon
-
-# Add to package.json scripts
-"scripts": {
-  "dev": "nodemon index.js",
-  "start": "node index.js"
-}
-
-# Run development server
 npm run dev
+# or
+npm start
 ```
 
-### Testing Webhooks Locally
+Local webhook testing:
 
 ```bash
-# Start ngrok
 ngrok http 3000
-
-# Use ngrok URL in WhatsApp webhook settings
-# Copy the forwarding URL (e.g., https://abcd-1234.ngrok-free.app)
 ```
 
-### Database Debugging
+Set Meta webhook URL to `https://<ngrok-domain>/webhook`.
 
-```bash
-# Access SQLite database
-sqlite3 database.sqlite
+## Additional Resources
 
-# View tables
-.tables
+- WhatsApp Cloud API: https://developers.facebook.com/docs/whatsapp/cloud-api/
+- Express: https://expressjs.com/
+- Sequelize: https://sequelize.org/
+- ngrok: https://ngrok.com/docs
 
-# Query users
-SELECT * FROM Users;
-```
+## License
 
----
-
-## 🐛 Troubleshooting
-
-### Issue: Messages Not Sending to Owner
-
-**Solution:**
-- Verify `OWNER_PHONE_NUMBER` in `.env` (should be in format: 918006243900)
-- Check `WHATSAPP_TOKEN` is valid and not expired
-- Ensure `PHONE_NUMBER_ID` is correct
-- Check WhatsApp Business Account is approved
-
-### Issue: Webhook Not Receiving Messages
-
-**Solution:**
-- Verify ngrok URL in `.env` matches the running ngrok session
-- Check webhook URL in WhatsApp settings
-- Ensure server is running: `node index.js`
-- Verify `VERIFY_TOKEN` is set correctly
-
-### Issue: QR Code Not Generating
-
-**Solution:**
-- Check `UPI_ID` in `.env` is correctly formatted (e.g., `8006243900@ybl`)
-- Ensure `payments/` directory exists with write permissions
-- Verify `amount` and `orderID` are passed correctly
-
-### Issue: Database Errors
-
-**Solution:**
-- Delete `database.sqlite` to reset database
-- Run: `node index.js` to recreate tables
-- Check database folder permissions
-
-### Issue: File Upload Failing
-
-**Solution:**
-- Verify `uploads/` and `payments/` directories exist
-- Check directory permissions: `chmod 755 uploads payments`
-- Ensure disk space is available
-
----
-
-## 📊 Database Reset
-
-To reset the database and start fresh:
-
-```bash
-rm database.sqlite
-node index.js
-```
-
-This will recreate all tables with the defined schemas.
-
----
-
-## 🔒 Security Notes
-
-⚠️ **Important Security Considerations:**
-
-1. **Never commit `.env` file** - Add to `.gitignore`
-2. **Rotate API tokens regularly** - Update `WHATSAPP_TOKEN` periodically
-3. **Use HTTPS in production** - Don't use ngrok for production
-4. **Validate all inputs** - Always sanitize customer data
-5. **Limit file uploads** - Set maximum file size restrictions
-6. **Database backups** - Regularly backup `database.sqlite`
-
----
-
-## 📞 Support & Issues
-
-### Reporting Bugs
-
-- GitHub Issues: [Report Issue](https://github.com/maviaarav/SHREE-LAXMI-INFRATECH-WHATSAPP-BOT/issues)
-- Include error messages, logs, and reproduction steps
-- Attach relevant `.env` configuration (sanitized)
-
-### For Shree Laxmi Infratech Support
-
-- **Executive Contact:** Vikal Mavi - +91 9911940454
-- **General Inquiries:** Contact via WhatsApp
-
----
-
-## 📝 License
-
-ISC License - See LICENSE file for details
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📚 Additional Resources
-
-- [WhatsApp Business API Documentation](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started)
-- [Express.js Documentation](https://expressjs.com/)
-- [Sequelize ORM Documentation](https://sequelize.org/)
-- [ngrok Documentation](https://ngrok.com/docs)
-
----
-
-## 🔄 Version History
-
-**v1.0.0** (Current)
-- Initial release with NOC registration, Premise registration, Quotation management, and Payment verification
-
----
-
-## ✅ Checklist Before Going Live
-
-- [ ] `.env` file configured with valid credentials
-- [ ] WhatsApp webhook URL verified and set
-- [ ] OWNER_PHONE_NUMBER updated to actual owner number
-- [ ] UPI_ID configured correctly
-- [ ] Base URL set to production domain (not ngrok)
-- [ ] Database backup strategy in place
-- [ ] Error logging configured
-- [ ] Rate limiting implemented
-- [ ] Test all workflows end-to-end
-- [ ] Customer documentation prepared
-
----
-
-## 📧 Contact & Support
-
-For questions or support:
-- Create an issue on GitHub
-- Contact: maviaarav@github.com
-
----
-
-**Last Updated:** April 2, 2026
-
-**Built with ❤️ for Shree Laxmi Infratech**
+ISC (per `package.json`).
