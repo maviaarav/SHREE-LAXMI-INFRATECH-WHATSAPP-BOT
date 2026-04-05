@@ -1309,9 +1309,12 @@ app.post('/premiseRegistration', async (req,res)=>{
     const viewUrl = `${APP_BASE_URL}/premiseRegistration/view/${phoneNumber}`;
     const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
 
-    await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${address || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${viewUrl}`);
+    await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${address || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.`);
+    await sendActionUrlButton(phoneNumber, 'View your submitted premise registration details.', 'View Details', viewUrl);
 
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${OwnerName || 'N/A'}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\nPlease review and take necessary action.`);
+    await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', viewUrl);
+    await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
 
     res.send(`
   <!DOCTYPE html>
@@ -1730,13 +1733,11 @@ app.get('/admin/sendPremiseToOwner/:phoneNumber', async(req,res)=>{
 👨‍💼 *Agent:* ${premise.AgentName}
 📞 *Quantity:* ${premise.quantity}
 
-*View Full Details:*
-${viewUrl}
-
 Please review and take necessary action.
     `;
     
     await normalText(process.env.OWNER_PHONE_NUMBER, message);
+  await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', viewUrl);
     
     res.json({ 
       success: true, 
@@ -2384,9 +2385,12 @@ app.post('/premiseRegistrationForm', upload.fields([
     const viewUrl = `${APP_BASE_URL}/premiseRegistration/view/${phoneNumber}`;
     const quotationUrl = `${APP_BASE_URL}/quotationForm?phoneNumber=${phoneNumber}&name=${encodeURIComponent(name || user.name || '')}&type=${encodeURIComponent(selectedType || type || '')}`;
 
-    await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${mergedAddress || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${viewUrl}`);
+    await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${mergedAddress || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.`);
+    await sendActionUrlButton(phoneNumber, 'View your submitted premise registration details.', 'View Details', viewUrl);
 
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${ownerNameValue}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n📬 *Pincode:* ${pincode || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\n*View Full Details:*\n${viewUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${ownerNameValue}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n📬 *Pincode:* ${pincode || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\nPlease review and take necessary action.`);
+    await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', viewUrl);
+    await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
 
     res.send(`
 <!DOCTYPE html>
@@ -2748,8 +2752,11 @@ app.post('/nocRegistration', async (req,res)=>{
   </body>
   </html>
 `);
-    await normalText(phoneNumber, `Thank you ${name}! Your NOC Registration for *${selectedType}* application has been submitted. \n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.\n\nView submitted details: ${nocDetailsUrl}`);
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New NOC Registration Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\n*View Full Details:*\n${nocDetailsUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
+    await normalText(phoneNumber, `Thank you ${name}! Your NOC Registration for *${selectedType}* application has been submitted. \n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.`);
+    await sendActionUrlButton(phoneNumber, 'View your submitted NOC registration details.', 'View Details', nocDetailsUrl);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New NOC Registration Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
+    await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', nocDetailsUrl);
+    await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
   }catch(error){
       console.error("❌ Error creating NOC registration:", {
         message: error.message,
@@ -3398,8 +3405,11 @@ app.post('/renewal', async (req,res)=>{
 `);
 
     await normalText(phoneNumber, `Thank you ${name}! Your Renewal for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.`);
+    await sendActionUrlButton(phoneNumber, 'View your submitted renewal details.', 'View Details', renewalDetailsUrl);
 
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Renewal Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\n*View Full Details:*\n${renewalDetailsUrl}\n\n*Upload Quotation:*\n${quotationUrl}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Renewal Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
+    await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', renewalDetailsUrl);
+    await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
 
   }catch(error){
     console.error("❌ Error creating renewal data:", {
@@ -3957,6 +3967,23 @@ app.get('/webhook', (req, res) => {
 
 
 const processedMessages = new Set();
+const recentInboundMessageByPhone = new Map();
+
+const rememberInboundMessageId = (phone, messageId) => {
+  if (!phone || !messageId) {
+    return;
+  }
+
+  recentInboundMessageByPhone.set(String(phone), String(messageId));
+
+  // Keep this cache bounded to avoid unbounded growth in long-running processes.
+  if (recentInboundMessageByPhone.size > 2000) {
+    const oldestKey = recentInboundMessageByPhone.keys().next().value;
+    if (oldestKey) {
+      recentInboundMessageByPhone.delete(oldestKey);
+    }
+  }
+};
 
 
 // ✅ Send QR Code via WhatsApp Media Upload (no server storage)
@@ -4036,14 +4063,22 @@ const sendQRCodeToWhatsApp = async (phoneNumber, qrBase64, amount, type) => {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const sendTypingOn = async (to) => {
+const sendTypingOn = async (to, messageId) => {
+  const inboundMessageId = messageId || recentInboundMessageByPhone.get(String(to));
+  if (!inboundMessageId) {
+    return;
+  }
+
   try {
     await axios.post(
       `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: 'whatsapp',
-        to,
-        type: 'typing_on'
+        status: 'read',
+        message_id: inboundMessageId,
+        typing_indicator: {
+          type: 'text'
+        }
       },
       {
         headers: {
@@ -4132,6 +4167,41 @@ const sendButton = async (to, text, buttons) => {
     console.error("❌ Error sending button:", error.response?.data || error.message);
   }
 };
+
+const sendActionUrlButton = async (to, text, buttonText, url) => {
+  try {
+    await sendTypingOn(to);
+    await wait(1200);
+    return await axios.post(
+      `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'interactive',
+        interactive: {
+          type: 'cta_url',
+          body: { text },
+          action: {
+            name: 'cta_url',
+            parameters: {
+              display_text: buttonText,
+              url
+            }
+          }
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  } catch (error) {
+    console.error('❌ Error sending CTA URL button message:', error.response?.data || error.message);
+  }
+};
+
 const normalText = async (to, text) =>{
   try {
     await sendTypingOn(to);
@@ -4215,6 +4285,7 @@ app.post('/webhook', async (req, res) => {
     processedMessages.add(message.id);
 
     const from = message.from;
+    rememberInboundMessageId(from, message.id);
     const text = message.text?.body;
 
     if (text) {
@@ -4288,8 +4359,14 @@ app.post('/webhook', async (req, res) => {
         }
            if(buttonReply.id === 'accept_quotation'){
           try {
-            normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊")
-            normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.\n\nCheck the details of the application here: https://shree-laxmi-infratech-whatsapp-bot-ixlw.onrender.com/renewal/view/${from}`)
+            await normalText(from, "Thank you for accepting the quotation! Your application has been alloted to our executive, Mr Vikal Mavi. He will contact you shortly to assist you further. If you have any questions in the meantime, feel free to ask at +91 9911940454. We look forward to serving you! 😊");
+            await normalText(process.env.OWNER_PHONE_NUMBER, `Quotation Accepted:\n\n*Phone: ${from}*\n\nThe customer has accepted the quotation. Please assign an executive to contact the customer and proceed with the service.`);
+            await sendActionUrlButton(
+              process.env.OWNER_PHONE_NUMBER,
+              `Open customer application details for +${from}.`,
+              'View Application',
+              `${APP_BASE_URL}/renewal/view/${from}`
+            );
 
             const quotation = await quotationAmount.findOne({
               where: { phoneNumber: from },
@@ -4325,7 +4402,8 @@ app.post('/webhook', async (req, res) => {
             }
 
             const paymentUploadLink = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
-            normalText(from, `✅ Once paid, please upload your payment screenshot here:\n\n${paymentUploadLink}\n\nThis helps us verify and confirm your payment quickly! 🚀`);
+            await normalText(from, '✅ Once paid, please upload your payment screenshot. This helps us verify and confirm your payment quickly! 🚀');
+            await sendActionUrlButton(from, 'Use the button below to upload your payment screenshot.', 'Upload Payment', paymentUploadLink);
 
           } catch (error) {
             console.error("❌ Error in quotation acceptance:", error);
@@ -4504,10 +4582,12 @@ app.post('/webhook', async (req, res) => {
             )
         }
         if(listReply.id === 'upload_payment'){
-            normalText(
+            const uploadUrl = `${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}`;
+            await normalText(
               from,
-              `To upload your payment screenshot, please fill out the form below:\n\n${process.env.BASE_URL}/paymentUploadForm?phoneNumber=${from}\n\n*Please have the following details ready:*\n- Order Number\n- Amount Paid\n- Clear payment screenshot (JPG or PNG)\n\nOur team will verify your payment and confirm within 24 hours. Thank you! ✅`
-            )
+              'To upload your payment screenshot, use the button below.\n\n*Please have the following details ready:*\n- Order Number\n- Amount Paid\n- Clear payment screenshot (JPG or PNG)\n\nOur team will verify your payment and confirm within 24 hours. Thank you! ✅'
+            );
+            await sendActionUrlButton(from, 'Open payment upload form.', 'Upload Payment', uploadUrl);
         }
         
     }
