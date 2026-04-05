@@ -381,6 +381,8 @@ app.post('/payment/upload', paymentUpload.single('screenshot'), async (req, res)
 
     // Send screenshot image to owner
     const screenshotUrl = `${process.env.BASE_URL}/payment/screenshot/${proof.id}`;
+    await sendTypingOn(process.env.OWNER_PHONE_NUMBER);
+    await wait(1200);
     await axios.post(
       `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
       {
@@ -1116,6 +1118,8 @@ app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
 
     const documentUrl = `${process.env.BASE_URL}/document/quotation/${phoneNumber}/${orderNo}`;
 
+    await sendTypingOn(phoneNumber);
+    await wait(1200);
     await axios.post(
       `https://graph.facebook.com/v22.0/${process.env.PHONE_NUMBER_ID}/messages`,
       {
@@ -4305,14 +4309,31 @@ const rememberInboundMessageId = (phone, messageId) => {
     return;
   }
 
-  recentInboundMessageByPhone.set(String(phone), String(messageId));
+  const raw = String(phone);
+  const normalizedDigits = raw.replace(/\D/g, '');
+  const last10 = normalizedDigits.length >= 10 ? normalizedDigits.slice(-10) : normalizedDigits;
+
+  const keys = new Set([
+    raw,
+    normalizedDigits,
+    `+${normalizedDigits}`,
+    last10,
+    `91${last10}`,
+    `+91${last10}`
+  ].filter(Boolean));
+
+  const inboundId = String(messageId);
+  for (const key of keys) {
+    recentInboundMessageByPhone.set(key, inboundId);
+  }
 
   // Keep this cache bounded to avoid unbounded growth in long-running processes.
-  if (recentInboundMessageByPhone.size > 2000) {
+  // Note: we store multiple keys per inbound message (format variations), so allow a larger cap.
+  const MAX_RECENT_INBOUND_KEYS = 8000;
+  while (recentInboundMessageByPhone.size > MAX_RECENT_INBOUND_KEYS) {
     const oldestKey = recentInboundMessageByPhone.keys().next().value;
-    if (oldestKey) {
-      recentInboundMessageByPhone.delete(oldestKey);
-    }
+    if (!oldestKey) break;
+    recentInboundMessageByPhone.delete(oldestKey);
   }
 };
 
@@ -4396,7 +4417,29 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v25.0';
 
 const sendTypingOn = async (to, messageId) => {
-  const inboundMessageId = messageId || recentInboundMessageByPhone.get(String(to));
+  let inboundMessageId = messageId;
+  if (!inboundMessageId) {
+    const raw = String(to ?? '');
+    const digits = raw.replace(/\D/g, '');
+    const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+
+    const candidates = [
+      raw,
+      digits,
+      `+${digits}`,
+      last10,
+      `91${last10}`,
+      `+91${last10}`
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+      const cached = recentInboundMessageByPhone.get(candidate);
+      if (cached) {
+        inboundMessageId = cached;
+        break;
+      }
+    }
+  }
   // WhatsApp Cloud API does not support a "typing_on" sender action.
   // Best-effort alternative: mark the inbound message as read.
   if (!inboundMessageId) return;
