@@ -28,21 +28,21 @@ This service exposes:
 ```mermaid
 flowchart LR
   WA[WhatsApp Cloud API]:::whatsapp
-  WH[Webhook\nGET/POST /webhook]:::webhook
-  SVR[Node.js + Express\nindex.js]:::server
+  WH["Webhook<br/>GET/POST /webhook"]:::webhook
+  SVR["Node.js + Express<br/>index.js"]:::server
 
-  subgraph Web[Web UI (Forms & Views)]
-    P1[/quotationForm\n(quotation upload)/]:::pages
-    P2[/NoCRegistrationForm\n(NOC apply)/]:::pages
-    P3[/form\n(renewal apply)/]:::pages
-    P4[/premiseRegistrationForm\n(premise docs)/]:::pages
-    P5[/insuranceForm\n(insurance apply)/]:::pages
-    P6[/paymentUploadForm\n(payment proof)/]:::pages
+  subgraph Web["Web UI (Forms and Views)"]
+    P1["/quotationForm<br/>(quotation upload)"]:::pages
+    P2["/NoCRegistrationForm<br/>(NOC apply)"]:::pages
+    P3["/form<br/>(renewal apply)"]:::pages
+    P4["/premiseRegistrationForm<br/>(premise docs)"]:::pages
+    P5["/insuranceForm<br/>(insurance apply)"]:::pages
+    P6["/paymentUploadForm<br/>(payment proof)"]:::pages
   end
 
-  DB[(Sequelize DB\nSQLite (default) or PostgreSQL)]:::db
-  FILES[(DB BLOB Storage\nQuotation PDF • Payment Proof\nPremise Docs)]:::files
-  QR[UPI QR Generation\n(in-memory)]:::qr
+  DB[("Sequelize DB<br/>SQLite (default) or PostgreSQL")]:::db
+  FILES[("DB BLOB Storage<br/>Quotation PDF • Payment Proof<br/>Premise Docs")]:::files
+  QR["UPI QR Generation<br/>(in-memory)"]:::qr
 
   CUST[Customer WhatsApp]:::customer
   OWNER[Owner WhatsApp]:::owner
@@ -51,7 +51,7 @@ flowchart LR
   SVR -->|Read/Write| DB
   SVR -->|Stores/Serves| FILES
   SVR --> QR --> WA
-  SVR -->|Interactive messages\n(list/buttons/CTA URLs)| WA
+  SVR -->|"Interactive messages<br/>(list/buttons/CTA URLs)"| WA
 
   P1 <--> SVR
   P2 <--> SVR
