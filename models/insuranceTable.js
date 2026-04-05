@@ -26,6 +26,10 @@ const insuranceTable = sequelize.define('insuranceTable', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  gstNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 });
 
 module.exports = insuranceTable;

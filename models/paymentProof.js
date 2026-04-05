@@ -35,6 +35,10 @@ const paymentProof = sequelize.define('paymentProof',{
         type: DataTypes.DATE,
         allowNull: true,
     },
+    gstNumber: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
 });
 
 module.exports = paymentProof;

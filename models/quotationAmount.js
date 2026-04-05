@@ -38,6 +38,10 @@ const quotationAmount = sequelize.define('quotationAmount', {
     orderNo: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    gstNumber: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 });
 module.exports = quotationAmount;

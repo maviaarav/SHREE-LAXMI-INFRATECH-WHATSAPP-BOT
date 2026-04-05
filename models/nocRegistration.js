@@ -22,6 +22,10 @@ const nocRegistration = sequelize.define('nocRegistration',{
         type : DataTypes.TEXT,
         allowNull : true,
     },
+    gstNumber: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
            
 })
 module.exports = nocRegistration;

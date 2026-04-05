@@ -125,6 +125,10 @@ const premiseRegistration = sequelize.define('premiseRegistration',{
     userId: {
         type: DataTypes.INTEGER,
         allowNull: true
+    },
+    gstNumber: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 })
 module.exports = premiseRegistration;

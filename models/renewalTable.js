@@ -21,6 +21,10 @@ const renewalTable = sequelize.define('renewalTable',{
     kva : {
         type : DataTypes.TEXT,
         allowNull : true,
+    },
+    gstNumber: {
+        type: DataTypes.STRING,
+        allowNull: true,
     }
 })
 module.exports = renewalTable;

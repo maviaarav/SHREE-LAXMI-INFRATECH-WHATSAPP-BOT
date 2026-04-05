@@ -308,6 +308,8 @@ app.get('/quotationForm', (req,res)=>{
            <input type="text" name="amount" placeholder="Enter quotation amount" />
            <h4 class="info-box">Please enter the order number.</h4>
            <input type="text" name="orderNo" placeholder="Enter order number" />
+           <h4 class="info-box">Enter GST Number (if any). Helpful for generating invoice.</h4>
+           <input type="text" name="gstNumber" placeholder="Enter GST number (if any)" />
           </div>
           <button type="submit" class="btn-submit">📤 Send Quotation </button>
         </form>
@@ -346,7 +348,8 @@ app.get('/document/quotation/:phoneNumber/:orderNo', async (req, res) => {
 // Payment screenshot upload endpoint
 app.post('/payment/upload', paymentUpload.single('screenshot'), async (req, res) => {
   try {
-    const { phoneNumber, orderNo, amount, quotationId } = req.body;
+    const { phoneNumber, orderNo, amount, quotationId, gstNumber } = req.body;
+    const gstNumberValue = String(gstNumber || '').trim() || null;
 
     if (!phoneNumber || !orderNo || !req.file) {
       return res.status(400).json({ error: 'Missing required fields or screenshot' });
@@ -361,6 +364,7 @@ app.post('/payment/upload', paymentUpload.single('screenshot'), async (req, res)
       phoneNumber,
       orderNo,
       amount: amount || 0,
+      gstNumber: gstNumberValue,
       screenshotData: req.file.buffer,
       screenshotMimeType: req.file.mimetype,
       screenshotOriginalName: req.file.originalname,
@@ -372,7 +376,7 @@ app.post('/payment/upload', paymentUpload.single('screenshot'), async (req, res)
     // Notify owner with buttons to confirm/reject payment
     await sendButton(
       process.env.OWNER_PHONE_NUMBER,
-      `📸 **New Payment Screenshot Received**\n\n*Phone:* +${phoneNumber}\n*Order:* ${orderNo}\n*Amount:* ₹${amount}\n\n✅ Screenshot saved to database.\n\nPlease verify:`,
+      `📸 **New Payment Screenshot Received**\n\n*Phone:* +${phoneNumber}\n*Order:* ${orderNo}\n*Amount:* ₹${amount}\n*GST:* ${gstNumberValue || 'N/A'}\n\n✅ Screenshot saved to database.\n\nPlease verify:`,
       [
         { id: `confirm_payment_${proof.id}`, title: '✅ Confirm Payment' },
         { id: `reject_payment_${proof.id}`, title: '❌ Reject Payment' }
@@ -1011,6 +1015,10 @@ app.get('/paymentUploadForm', async (req, res) => {
             <label for="amount">Amount (₹)</label>
             <input type="number" id="amount" name="amount" value="${amount}" readonly required />
             <div class="info-text">✓ Auto-filled from your quotation</div>
+
+            <label for="gstNumber">Enter GST Number (if any)</label>
+            <input type="text" id="gstNumber" name="gstNumber" placeholder="Enter GST number (if any)" />
+            <div class="info-text">Helpful for generating invoice</div>
           </div>
 
           <div class="form-section">
@@ -1085,7 +1093,8 @@ app.get('/paymentUploadForm', async (req, res) => {
 
 app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
   try{
-    const { phoneNumber, name, type, amount, orderNo } = req.body || {}
+    const { phoneNumber, name, type, amount, orderNo, gstNumber } = req.body || {}
+    const gstNumberValue = String(gstNumber || '').trim() || null;
 
     if (!phoneNumber || !name || !type || !amount || !orderNo) {
       return res.status(400).json({ error: 'Missing required quotation fields.' });
@@ -1107,6 +1116,7 @@ app.post('/quotationAmount', upload.single('pdf'), async (req,res)=>{
       name,
       type,
       amount,
+      gstNumber: gstNumberValue,
       pdfData: req.file.buffer,
       pdfMimeType: req.file.mimetype,
       pdfOriginalName: req.file.originalname,
@@ -1945,6 +1955,7 @@ app.get('/premiseRegistrationForm', async (req, res) => {
             <div class="field"><label>Agent Name</label><input type="text" name="AgentName" required /></div>
             <div class="field"><label>Agent Email</label><input type="email" name="EmailAgent" required /></div>
             <div class="field"><label>Agent Mobile</label><input type="tel" name="MobileAgent" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" minlength="10" required /></div>
+            <div class="field full"><label>Enter GST Number (if any)</label><input type="text" name="gstNumber" placeholder="Enter GST number (if any)" /><div class="help">Helpful for generating invoice.</div></div>
           </div>
         </section>
 
@@ -2277,8 +2288,11 @@ app.post('/premiseRegistrationForm', upload.fields([
       weight,
       proposedDateofcommencement,
       proposedDateofcompletion,
-      quantity
+      quantity,
+      gstNumber
     } = req.body;
+
+    const gstNumberValue = String(gstNumber || '').trim() || null;
 
     if (!phoneNumber) {
       return res.status(400).json({ error: 'Missing required field: phoneNumber' });
@@ -2384,6 +2398,7 @@ app.post('/premiseRegistrationForm', upload.fields([
       SignatureofOwner: signature.data,
       SignatureofOwnerMimeType: signature.mimeType,
       quantity: quantity ? Number(quantity) : null,
+      gstNumber: gstNumberValue,
       personCapacity: personCapacityArray ? JSON.stringify(personCapacityArray) : null,
       userId: user.id
     });
@@ -2394,7 +2409,7 @@ app.post('/premiseRegistrationForm', upload.fields([
     await normalText(phoneNumber, `Thank you ${name || user.name || 'Customer'}! Your Premise Registration for *${selectedType || type || 'application'}* has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType || type || 'N/A'}\n- Quantity: ${quantity || 'N/A'}\n- Address: ${mergedAddress || 'N/A'}\n\nWe will contact you shortly. Our team will send you the quotation.`);
     await sendActionUrlButton(phoneNumber, 'View your submitted premise registration details.', 'View Details', viewUrl);
 
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${ownerNameValue}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n📬 *Pincode:* ${pincode || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Premise Registration Application*\n\n👤 *Customer:* ${name || user.name || 'N/A'}\n📱 *Phone:* +${phoneNumber}\n🔧 *Type:* ${selectedType || type || 'N/A'}\n🏠 *Owner:* ${ownerNameValue}\n📮 *House No:* ${House_no || 'N/A'}\n📍 *Colony:* ${ColonyName || 'N/A'}\n📌 *Locality:* ${Locality || 'N/A'}\n📬 *Pincode:* ${pincode || 'N/A'}\n👨‍💼 *Agent:* ${AgentName || 'N/A'}\n📞 *Quantity:* ${quantity || 'N/A'}\n🧾 *GST:* ${gstNumberValue || 'N/A'}\n\nPlease review and take necessary action.`);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', viewUrl);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
 
@@ -2671,8 +2686,9 @@ app.get('/nocRegistration/:phoneNumber', async(req,res)=>{
 })
 app.post('/nocRegistration', async (req,res)=>{
   try{
-    const { name, phoneNumber, address, type, capacity, quantity, kva } = req.body;
+    const { name, phoneNumber, address, type, capacity, quantity, kva, gstNumber } = req.body;
     const selectedType = String(type || '').trim();
+    const gstNumberValue = String(gstNumber || '').trim() || null;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Invalid input', details: 'Name is required' });
@@ -2717,6 +2733,7 @@ app.post('/nocRegistration', async (req,res)=>{
       capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
       quantity: quantityValue,
       kva: kvaValue && kvaValue.length > 0 ? JSON.stringify(kvaValue) : null,
+      gstNumber: gstNumberValue,
       userId: user.id
     });
 
@@ -2765,7 +2782,7 @@ app.post('/nocRegistration', async (req,res)=>{
 `);
     await normalText(phoneNumber, `Thank you ${name}! Your NOC Registration for *${selectedType}* application has been submitted. \n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.`);
     await sendActionUrlButton(phoneNumber, 'View your submitted NOC registration details.', 'View Details', nocDetailsUrl);
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New NOC Registration Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New NOC Registration Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n🧾 *GST:* ${gstNumberValue || 'N/A'}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', nocDetailsUrl);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
   }catch(error){
@@ -2909,6 +2926,10 @@ app.get('/NoCRegistrationForm',(req,res)=>{
 
       <label>Address</label>
       <input type="text" name="address" required />
+
+      <label>Enter GST Number (if any)</label>
+      <input type="text" name="gstNumber" placeholder="Enter GST number (if any)" />
+      <small style="display:block; margin-top:6px; color:#64748b;">Helpful for generating invoice.</small>
 
       <label>Quantity</label>
       <input type="number" id="quantity" name="quantity" min="1" required />
@@ -3308,8 +3329,9 @@ app.get('/renewal/view/:phoneNumber', async (req, res) => {
 
 app.post('/renewal', async (req,res)=>{
   try{
-    const {name, phoneNumber, address, type, capacity, quantity, kva, expiryDate} = req.body;
+    const {name, phoneNumber, address, type, capacity, quantity, kva, expiryDate, gstNumber} = req.body;
     const selectedType = String(type || '').trim();
+    const gstNumberValue = String(gstNumber || '').trim() || null;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Invalid input", details: "Name is required" });
@@ -3355,6 +3377,7 @@ app.post('/renewal', async (req,res)=>{
       capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
       quantity: quantityValue,
       kva: kvaValue && kvaValue.length > 0 ? JSON.stringify(kvaValue) : null,
+      gstNumber: gstNumberValue,
       userId: user.id
     });
 
@@ -3403,7 +3426,7 @@ app.post('/renewal', async (req,res)=>{
 
     await normalText(phoneNumber, `Thank you ${name}! Your Renewal for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Expiry Date: ${expiryDate}\n- Address: ${address}\n\nWe will contact you shortly. Our team will send you the quotation.`);
     await sendActionUrlButton(phoneNumber, 'View your submitted renewal details.', 'View Details', renewalDetailsUrl);
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Renewal Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n📅 *Expiry Date:* ${expiryDate}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Renewal Application Received*\n\n👤 *Customer:* ${name}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${address}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n📅 *Expiry Date:* ${expiryDate}\n🧾 *GST:* ${gstNumberValue || 'N/A'}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full details for customer +${phoneNumber}.`, 'View Details', renewalDetailsUrl);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
 
@@ -3606,10 +3629,11 @@ app.get('/insurance/view/:phoneNumber', async (req, res) => {
 
 app.post('/insurance', async (req, res) => {
   try {
-    const { name, phoneNumber, address, type, capacity, quantity, kva, expiryDate } = req.body;
+    const { name, phoneNumber, address, type, capacity, quantity, kva, expiryDate, gstNumber } = req.body;
     const selectedType = String(type || '').trim();
     const submittedName = String(name || '').trim();
     const submittedAddress = String(address || '').trim();
+    const gstNumberValue = String(gstNumber || '').trim() || null;
 
     if (!submittedName) return res.status(400).json({ error: 'Invalid input', details: 'Name is required' });
     if (!phoneNumber || !String(phoneNumber).trim()) return res.status(400).json({ error: 'Invalid input', details: 'Phone number is required' });
@@ -3644,6 +3668,7 @@ app.post('/insurance', async (req, res) => {
       capacity: capacityValue && capacityValue.length > 0 ? JSON.stringify(capacityValue) : null,
       quantity: quantityValue,
       kva: kvaValue && kvaValue.length > 0 ? JSON.stringify(kvaValue) : null,
+      gstNumber: gstNumberValue,
       userId: user.id
     });
 
@@ -3674,7 +3699,7 @@ app.post('/insurance', async (req, res) => {
 
     await normalText(phoneNumber, `Thank you ${submittedName}! Your Insurance for *${selectedType}* application has been submitted.\n\nThe details are as follows:\n- Type: ${selectedType}\n- Quantity: ${quantityValue}\n- Expiry Date: ${expiryDate}\n- Address: ${submittedAddress}\n\nWe will contact you shortly. Our team will send you the quotation.`);
     await sendActionUrlButton(phoneNumber, 'View your submitted insurance details.', 'View Details', insuranceDetailsUrl);
-    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Insurance Application Received*\n\n👤 *Customer:* ${submittedName}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${submittedAddress}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n📅 *Expiry Date:* ${expiryDate}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
+    await normalText(process.env.OWNER_PHONE_NUMBER, `✅ *New Insurance Application Received*\n\n👤 *Customer:* ${submittedName}\n📱 *Phone:* +${phoneNumber}\n🏠 *Address:* ${submittedAddress}\n🔧 *Type:* ${selectedType}\n📦 *Quantity:* ${quantityValue}\n📅 *Expiry Date:* ${expiryDate}\n🧾 *GST:* ${gstNumberValue || 'N/A'}\n${kvaValue && kvaValue.length > 0 ? `\n⚡ *KVA:* ${kvaValue.join(', ')}` : ''}${capacityValue && capacityValue.length > 0 ? `\n👤 *Capacity:* ${capacityValue.join(', ')}` : ''}\n\nPlease review and take necessary action.`);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Open full insurance details for customer +${phoneNumber}.`, 'View Details', insuranceDetailsUrl);
     await sendActionUrlButton(process.env.OWNER_PHONE_NUMBER, `Upload quotation for customer +${phoneNumber}.`, 'Upload Quotation', quotationUrl);
   } catch (error) {
@@ -3717,6 +3742,9 @@ app.get('/insuranceForm', (req, res) => {
       <input type="text" name="name" required />
       <label>Address</label>
       <input type="text" name="address" required />
+      <label>Enter GST Number (if any)</label>
+      <input type="text" name="gstNumber" placeholder="Enter GST number (if any)" />
+      <small style="display:block; margin-top:6px; color:#64748b;">Helpful for generating invoice.</small>
       <label>Expiry Date</label>
       <input type="date" name="expiryDate" required />
       <label>Quantity</label>
@@ -3880,6 +3908,10 @@ app.get('/form',(req,res)=>{
 
       <label>Address</label>
       <input type="text" name="address" required />
+
+      <label>Enter GST Number (if any)</label>
+      <input type="text" name="gstNumber" placeholder="Enter GST number (if any)" />
+      <small style="display:block; margin-top:6px; color:#64748b;">Helpful for generating invoice.</small>
 
       <label>Expiry Date</label>
       <input type="date" name="expiryDate" required />
